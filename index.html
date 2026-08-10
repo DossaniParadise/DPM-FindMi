@@ -3,6 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Stop iOS Safari auto-linking phone numbers/addresses in the card text.
+       That auto-linking added its own underline that wrapped mid-value and
+       looked broken. The Call/Email/Go buttons are the intended actions. -->
+  <meta name="format-detection" content="telephone=no, address=no, email=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <title>DPM FindMi</title>
 <link rel="icon" type="image/png" href="favicon-96x96.png" sizes="96x96" />
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
@@ -1423,8 +1428,17 @@
     @media (max-width: 768px) {
       body { overflow: hidden; height: 100vh; overscroll-behavior: none; }
 
-      header { padding: 8px 12px; flex-wrap: wrap; gap: 6px 10px; }
+      header { padding: 8px 12px; flex-wrap: nowrap; gap: 6px 10px; align-items: center; }
       .header-logo h1 { font-size: 0.95rem; line-height: 1.2; }
+      /* Mobile is read-only: the version badge, connection status, and the
+         Unlock-Editing toggle are all desktop concerns. Hiding them stops the
+         header wrapping and clears the clutter you saw when zoomed out. The
+         Directory/Map toggle stays - it's how you reach the map. */
+      .header-logo span { display: none; }
+      #connectionStatus { display: none !important; }
+      .lock-toggle-container { display: none !important; }
+      .header-actions { margin-left: auto; }
+      .view-toggle-container { margin-right: 0 !important; }
 
       /* The dashboard becomes a single full-height scroll area. */
       /* Header (~56) + floating pill (~62 incl. gap) + safe area. */
@@ -1593,6 +1607,13 @@
     #mapScrim { display: none; }
 
     @media (max-width: 768px) {
+      /* Left "Store Directory" tree is desktop-only - on a phone the map is
+         just pins + the filter sheet. Hide the panel and its toggle button. */
+      body.map-kiosk-active #mapRail,
+      body.map-kiosk-active #mapDrawerToggles .map-drawer-btn[onclick*="mapRail"] {
+        display: none !important;
+      }
+
       /* Both rails become full-width horizontal sheets pinned to an edge. */
       body.map-kiosk-active #mapRail,
       body.map-kiosk-active #mapFilters {
@@ -1602,6 +1623,8 @@
         max-width: none !important;
         height: auto !important;
         max-height: 62vh;
+        overflow-y: auto;                 /* content scrolls inside the sheet */
+        -webkit-overflow-scrolling: touch;
         z-index: 1080;
         transition: transform 0.3s ease;
         will-change: transform;
@@ -1640,7 +1663,7 @@
       /* Toggle buttons pinned top-left / top-right. */
       body.map-kiosk-active #mapDrawerToggles {
         display: flex;
-        justify-content: space-between;
+        justify-content: flex-end;
         position: absolute;
         top: 12px;
         left: 12px;
@@ -1667,12 +1690,14 @@
       }
       body.map-kiosk-active .map-drawer-btn:active { transform: scale(0.96); }
 
-      /* Dark scrim behind an open sheet; tap it to close. */
+      /* Dark scrim behind an open sheet; tap it to close. Must sit BELOW the
+         drawers (which are z-index 1080) or it intercepts taps meant for the
+         filter controls - that was the "map filter freezes everything" bug. */
       body.map-kiosk-active #mapScrim.scrim-show {
         display: block;
         position: absolute;
         inset: 0;
-        z-index: 1050;
+        z-index: 1040;
         background: rgba(0, 0, 0, 0.45);
       }
 
@@ -1715,7 +1740,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v4.7 Vercel API</span>
+      <span>v4.8 Vercel API</span>
     </div>
     
     <div class="header-actions">
