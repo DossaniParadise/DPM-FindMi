@@ -905,6 +905,41 @@
       border-color: #9d97e6;
     }
 
+    /* ===================== MOBILE CARD ACTIONS =====================
+       Tap-to-call / email / navigate. Hidden on desktop (which keeps its
+       copy buttons); shown only in the mobile media query below. */
+    .m-actions { display: none; }
+
+    @media (max-width: 768px) {
+      /* Roomier, readable cards - the core complaint was cramped density. */
+      .card { padding: 14px 16px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(15,23,42,.06); }
+      .card-title { font-size: 1rem; line-height: 1.3; }
+      .card-detail { font-size: 0.9rem; line-height: 1.45; margin-bottom: 4px; }
+      .cards-list { padding: 4px 2px 12px; }
+
+      /* Action row: three (or two) big tap targets. */
+      .m-actions {
+        display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+        gap: 8px; margin: 4px 0 12px; pointer-events: auto;
+      }
+      .m-act {
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 3px; min-height: 52px; border-radius: 12px; text-decoration: none;
+        font-size: 0.72rem; font-weight: 700; letter-spacing: .01em;
+        pointer-events: auto; -webkit-tap-highlight-color: transparent;
+        transition: transform .12s ease, filter .12s ease;
+      }
+      .m-act svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+      .m-act:active { transform: scale(.95); filter: brightness(.94); }
+      /* Brand-navy family, differentiated so the three read apart at a glance. */
+      .m-act-call { background: #251d7f; color: #fff; }
+      .m-act-mail { background: #eef0fb; color: #251d7f; border: 1px solid #d6dbf5; }
+      .m-act-nav  { background: #f59e0b; color: #fff; }
+      /* Missing data: visible but inert, so the row stays a stable grid. */
+      .m-act-off { background: #f1f5f9; color: #cbd5e1; pointer-events: none; }
+      .m-act-off:active { transform: none; }
+    }
+
     /* Flags a field whose value never leaves the edit dialog. */
     .field-private { font-weight: 400; font-size: .65rem; color: #b45309; letter-spacing: .01em; }
     .field-opt { font-weight: 400; font-size: .65rem; color: #94a3b8; }
@@ -1681,7 +1716,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v4.5 Vercel API</span>
+      <span>v4.6 Vercel API</span>
     </div>
     
     <div class="header-actions">
@@ -2943,6 +2978,16 @@
       return sName;
     }
 
+    // Mobile action row for a person (call + email). Hidden on desktop via CSS.
+    function mPersonActions(person) {
+      const tel = person && person.phone ? String(person.phone).replace(/[^0-9+]/g, "") : "";
+      const mail = person && person.email ? person.email : "";
+      return `<div class="m-actions" onmousedown="event.stopPropagation();" onclick="event.stopPropagation();">
+        <a class="m-act m-act-call ${tel ? '' : 'm-act-off'}" ${tel ? 'href="tel:' + tel + '"' : ''} onclick="event.stopPropagation();" draggable="false" aria-label="Call"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L14 12l5 2v4a2 2 0 0 1-2 2A15 15 0 0 1 2 6a2 2 0 0 1 2-2z"/></svg><span>Call</span></a>
+        <a class="m-act m-act-mail ${mail ? '' : 'm-act-off'}" ${mail ? 'href="mailto:' + escapeHtml(mail) + '"' : ''} onclick="event.stopPropagation();" draggable="false" aria-label="Email"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v14H3z"/><path d="M3 6l9 7 9-7"/></svg><span>Email</span></a>
+      </div>`;
+    }
+
     // Render VP of Operations (top of left column). VPs are the top tier;
     // directors drop onto a VP to report to them.
     function renderVps() {
@@ -2984,6 +3029,7 @@
               </div>
             </div>
             <div class="card-details-block" onmousedown="event.stopPropagation();" onclick="event.stopPropagation();" style="pointer-events: auto !important; margin-top: 6px;">
+              ${mPersonActions(vp)}
               <div class="card-detail" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                 <span>✉ ${escapeHtml(vp.email || 'No email')}</span>
                 ${vp.email ? `<button class="copy-btn-mini" onclick="copyTextToClipboard(this.getAttribute('data-text'), this)" data-text="${escapeHtml(vp.email)}">📋 Copy</button>` : ''}
@@ -3050,6 +3096,7 @@
               </div>
             </div>
             <div class="card-details-block" onmousedown="event.stopPropagation();" onclick="event.stopPropagation();" style="pointer-events: auto !important; margin-top: 6px;">
+              ${mPersonActions(dir)}
               <div class="card-detail" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                 <span>✉ ${escapeHtml(dir.email || 'No email')}</span>
                 ${dir.email ? `<button class="copy-btn-mini" onclick="copyTextToClipboard(this.getAttribute('data-text'), this)" data-text="${escapeHtml(dir.email)}">📋 Copy</button>` : ''}
@@ -3112,6 +3159,7 @@
               </div>
             </div>
             <div class="card-details-block" onmousedown="event.stopPropagation();" onclick="event.stopPropagation();" style="pointer-events: auto !important; margin-top: 6px;">
+              ${mPersonActions(tech)}
               <div class="card-detail" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                 <span>✉ ${escapeHtml(tech.email || 'No email')}</span>
                 ${tech.email ? `<button class="copy-btn-mini" onclick="copyTextToClipboard(this.getAttribute('data-text'), this)" data-text="${escapeHtml(tech.email)}">📋 Copy</button>` : ''}
@@ -3351,6 +3399,7 @@
               </div>
             </div>
             <div class="card-details-block" onmousedown="event.stopPropagation();" onclick="event.stopPropagation();" style="pointer-events: auto !important; margin-top: 6px;">
+              ${mPersonActions(coach)}
               <div class="card-detail" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                 <span>✉ ${escapeHtml(coach.email || 'No email')}</span>
                 ${coach.email ? `<button class="copy-btn-mini" onclick="copyTextToClipboard(this.getAttribute('data-text'), this)" data-text="${escapeHtml(coach.email)}">📋 Copy</button>` : ''}
@@ -3623,6 +3672,13 @@
         card.addEventListener("dragstart", handleDragStart);
         card.addEventListener("dragend", handleDragEnd);
 
+        // Precompute mobile action targets (avoid nested backticks in template).
+        const mTel = rest.phone ? String(rest.phone).replace(/[^0-9+]/g, "") : "";
+        const mMail = rest.email || "";
+        const mNav = (rest.latitude && rest.longitude)
+          ? "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(rest.latitude + "," + rest.longitude)
+          : (rest.address ? "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(rest.address) : "");
+
         if (isExpanded) {
           card.innerHTML = `
             <div class="card-header-row" style="display: flex; justify-content: space-between; align-items: center; width: 100%; overflow: hidden;">
@@ -3637,6 +3693,11 @@
               </div>
             </div>
             <div class="card-details-block" onmousedown="event.stopPropagation();" onclick="event.stopPropagation();" style="pointer-events: auto !important; margin-top: 4px;">
+              <div class="m-actions" onmousedown="event.stopPropagation();" onclick="event.stopPropagation();">
+                <a class="m-act m-act-call ${mTel ? '' : 'm-act-off'}" ${mTel ? 'href="tel:' + mTel + '"' : ''} onclick="event.stopPropagation();" draggable="false" aria-label="Call store"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L14 12l5 2v4a2 2 0 0 1-2 2A15 15 0 0 1 2 6a2 2 0 0 1 2-2z"/></svg><span>Call</span></a>
+                <a class="m-act m-act-mail ${mMail ? '' : 'm-act-off'}" ${mMail ? 'href="mailto:' + escapeHtml(mMail) + '"' : ''} onclick="event.stopPropagation();" draggable="false" aria-label="Email store"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v14H3z"/><path d="M3 6l9 7 9-7"/></svg><span>Email</span></a>
+                <a class="m-act m-act-nav ${mNav ? '' : 'm-act-off'}" ${mNav ? 'href="' + mNav + '" target="_blank" rel="noopener"' : ''} onclick="event.stopPropagation();" draggable="false" aria-label="Navigate to store"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg><span>Go</span></a>
+              </div>
               ${rest.entity ? `
                 <div class="card-detail" style="font-weight: 550; color: #1e3a8a; display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <span>🏢 Entity: ${escapeHtml(rest.entity)}</span>
