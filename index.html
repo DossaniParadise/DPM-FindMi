@@ -1681,7 +1681,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v4.4 Vercel API</span>
+      <span>v4.5 Vercel API</span>
     </div>
     
     <div class="header-actions">
@@ -1722,7 +1722,27 @@
     
     <!-- LEFT COLUMN - DIRECTORS & TECHNICIANS -->
     <section class="column" data-col="a" style="display: flex; flex-direction: column;">
-      <!-- Directors of Operations (Top Half) -->
+      <!-- VP of Operations (Top) -->
+      <div class="m-panel" data-panel="vp" style="flex: 1; display: flex; flex-direction: column; overflow: hidden; border-bottom: 2px solid var(--neutral-border);">
+        <div class="column-header m-panel-head">
+          <div class="column-title">
+            VP of Operations
+            <span class="column-counter" id="vpCount">0</span>
+          </div>
+          <button class="btn btn-primary btn-xs" onclick="openCreateModal('vp')">+ Add</button>
+        </div>
+
+        <div id="vpFilterBar" class="filter-message-bar" style="display: none;">
+          <span id="vpFilterText" style="font-weight: 500;">Filtered by VP</span>
+          <button class="clear-filter-btn" onclick="clearVpFilters()">Show All</button>
+        </div>
+
+        <div class="cards-list" id="vpsList" style="flex: 1; overflow-y: auto;" ondragover="handleDragOverList(event)" ondragleave="handleDragLeaveList(event)" ondrop="handleDropOnVpList(event)">
+          <!-- VPs loaded dynamically -->
+        </div>
+      </div>
+
+      <!-- Directors of Operations (Middle) -->
       <div class="m-panel" data-panel="director" style="flex: 1; display: flex; flex-direction: column; overflow: hidden; border-bottom: 2px solid var(--neutral-border);">
         <div class="column-header m-panel-head">
           <div class="column-title">
@@ -1938,6 +1958,8 @@
   <!-- Mobile bottom tab bar. Icons are inline SVG (emoji render differently per
        device and would break the monochrome look). Stores is the default view. -->
   <nav class="m-tabs" id="mTabs" aria-label="Sections">
+    <button class="m-tab" data-tab="vp" onclick="mShow('vp')" aria-label="VP of Operations">
+      <span class="m-tab-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4L12 14.8 7.2 17.3l.9-5.4L4.2 8.1l5.4-.8z"/></svg><i class="m-dot" id="mnVp"></i></span>VP</button>
     <button class="m-tab" data-tab="director" onclick="mShow('director')" aria-label="Directors of Operations">
       <span class="m-tab-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/><path d="M9 13.5 12 17l3-3.5"/></svg><i class="m-dot" id="mnDirector"></i></span>DO</button>
     <button class="m-tab" data-tab="technician" onclick="mShow('technician')" aria-label="Repair technicians">
@@ -2056,6 +2078,14 @@
           </div>
 
           <!-- Form explicit relationships dropdown selector -->
+          <div class="form-group" id="groupAssignedVp" style="display: none;">
+            <label for="selectAssignedVp">Reports to VP</label>
+            <select id="selectAssignedVp">
+              <option value="">-- No VP Assigned --</option>
+              <!-- Populated dynamically -->
+            </select>
+          </div>
+
           <div class="form-group" id="groupAssignedDirector" style="display: none;">
             <label for="selectAssignedDirector">Assigned Operations Director</label>
             <select id="selectAssignedDirector">
@@ -2279,6 +2309,7 @@
         areaCoaches = data.areaCoaches || {};
         repairTechnicians = data.repairTechnicians || {};
         entities = data.entities || {};
+        vps = data.vps || {};
         restaurants = data.restaurants || {};
         adminsNode = data.admins || {};   // shared config: ticketCategories + techMeta
 
@@ -2303,13 +2334,16 @@
     let repairTechnicians = {};
     let adminsNode = {};
     let entities = {};
+    let vps = {};
 
+    let selectedVpId = null;
     let selectedDirectorId = null;
     let selectedCoachId = null;
     let selectedTechnicianId = null;
     let selectedEntityId = null;
 
     // Card inline expansion state tracking (Only one expanded card per column is allowed)
+    let expandedVpId = null;
     let expandedDirectorId = null;
     let expandedCoachId = null;
     let expandedRestaurantId = null;
@@ -2400,6 +2434,33 @@
       return Object.keys(restaurants).filter(id => storeHasCoach(restaurants[id], coachId));
     }
     // Stores under a director: their direct reports plus everything under their coaches.
+    // ---- VP tier ----
+    // VPs sit above DOs. A DO carries assignedVpId; a store inherits its VP
+    // THROUGH its DO (store -> DM -> DO -> VP). Stores never store a VP directly,
+    // so there's one source of truth and reassigning a DO's VP moves all their
+    // stores at once.
+    function vpIdForDirector(directorId) {
+      const d = directors[directorId];
+      return (d && d.assignedVpId && vps[d.assignedVpId]) ? d.assignedVpId : "";
+    }
+    // The VP a store rolls up to, via its director.
+    function vpIdForStore(rest) {
+      if (!rest) return "";
+      return vpIdForDirector(rest.assignedDirectorId);
+    }
+    function vpNameForStore(rest) {
+      const id = vpIdForStore(rest);
+      return id ? vps[id].name : "";
+    }
+    // Directors reporting to a VP; and all stores rolling up to that VP.
+    function directorsForVp(vpId) {
+      return Object.keys(directors).filter(id => directors[id].assignedVpId === vpId);
+    }
+    function storesForVp(vpId) {
+      const dirs = directorsForVp(vpId);
+      return Object.keys(restaurants).filter(id => dirs.indexOf(restaurants[id].assignedDirectorId) !== -1);
+    }
+
     function storesForDirector(directorId) {
       return Object.keys(restaurants).filter(id => restaurants[id].assignedDirectorId === directorId);
     }
@@ -2619,6 +2680,7 @@
     // 4. RENDERING ROUTINES FOR THE 3 VIEWS
     function renderAll() {
       autoLockTechColors();
+      renderVps();
       renderDirectors();
       renderTechnicians();
       renderCoaches();
@@ -2627,6 +2689,25 @@
       renderHistory();
       updateFilterBars();
       mSyncCounts();
+    }
+
+    function toggleVpExpand(vpId) {
+      if (window.getSelection().toString()) return;
+      expandedVpId = (expandedVpId === vpId) ? null : vpId;
+      selectVp(vpId);
+    }
+
+    function selectVp(vpId) {
+      selectedVpId = (selectedVpId === vpId) ? null : vpId;
+      // VP filter is exclusive with the other left-column filters.
+      selectedDirectorId = null;
+      renderAll();
+    }
+
+    function clearVpFilters() {
+      selectedVpId = null;
+      expandedVpId = null;
+      renderAll();
     }
 
     // Toggle expansion inline (Only one allowed expanded per column at a time)
@@ -2860,6 +2941,70 @@
       }
       
       return sName;
+    }
+
+    // Render VP of Operations (top of left column). VPs are the top tier;
+    // directors drop onto a VP to report to them.
+    function renderVps() {
+      const listDiv = document.getElementById("vpsList");
+      const countSpan = document.getElementById("vpCount");
+      if (!listDiv) return;
+      const keys = Object.keys(vps);
+      if (countSpan) countSpan.innerText = keys.length;
+      listDiv.innerHTML = "";
+
+      if (keys.length === 0) {
+        listDiv.innerHTML = `<div class="card" style="text-align: center; color: var(--text-muted);">No VP yet. Click + Add</div>`;
+        return;
+      }
+
+      keys.forEach((vpId) => {
+        const vp = vps[vpId];
+        const isSelected = selectedVpId === vpId;
+        const isExpanded = expandedVpId === vpId;
+
+        const card = document.createElement("div");
+        card.className = `card ${isSelected ? 'selected' : ''}`;
+        card.setAttribute("data-id", vpId);
+        card.setAttribute("data-type", "vp");
+
+        card.addEventListener("click", () => toggleVpExpand(vpId));
+        card.addEventListener("dragover", handleDragOverCard);
+        card.addEventListener("dragleave", handleDragLeaveCard);
+        card.addEventListener("drop", handleDropOnVpCard);
+
+        if (isExpanded) {
+          const doCount = directorsForVp(vpId).length;
+          card.innerHTML = `
+            <div class="card-header-row">
+              <div class="card-title">${escapeHtml(vp.name)} <span style="font-weight: normal; color: #3b82f6; font-size: 0.72rem; margin-left: 4px;">(Active)</span></div>
+              <div class="card-actions">
+                <button class="btn btn-icon btn-icon-edit" onclick="event.stopPropagation(); openEditModal('vp', '${vpId}')">✎</button>
+                <button class="btn btn-icon btn-icon-delete" onclick="event.stopPropagation(); deleteEntry('vp', '${vpId}')">✕</button>
+              </div>
+            </div>
+            <div class="card-details-block" onmousedown="event.stopPropagation();" onclick="event.stopPropagation();" style="pointer-events: auto !important; margin-top: 6px;">
+              <div class="card-detail" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <span>✉ ${escapeHtml(vp.email || 'No email')}</span>
+                ${vp.email ? `<button class="copy-btn-mini" onclick="copyTextToClipboard(this.getAttribute('data-text'), this)" data-text="${escapeHtml(vp.email)}">📋 Copy</button>` : ''}
+              </div>
+              <div class="card-detail" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <span>☎ ${escapeHtml(formatPhoneNumber(vp.phone) || 'No phone')}</span>
+                ${vp.phone ? `<button class="copy-btn-mini" onclick="copyTextToClipboard(this.getAttribute('data-text'), this)" data-text="${escapeHtml(formatPhoneNumber(vp.phone))}">📋 Copy</button>` : ''}
+              </div>
+              <div class="card-detail"><span>👥 ${doCount} Director${doCount === 1 ? "" : "s"} reporting</span></div>
+            </div>
+          `;
+        } else {
+          card.innerHTML = `
+            <div class="card-header-row" style="margin-bottom: 0; align-items: center;">
+              <div class="card-title">${escapeHtml(vp.name)}</div>
+              <span style="font-size: 0.65rem; color: #a1a1aa; font-weight: 500;">Click to reveal</span>
+            </div>
+          `;
+        }
+        listDiv.appendChild(card);
+      });
     }
 
     // Render operations column
@@ -3595,8 +3740,9 @@
       if (draggedElementData.type === 'coach' && (targetType === 'director' || targetType === 'technician')) {
         e.currentTarget.classList.add("drag-hover-target");
       }
-      // Director can drop on Tech or Coach to cascade their stores.
-      if (draggedElementData.type === 'director' && (targetType === 'technician' || targetType === 'coach')) {
+      // Director can drop on Tech or Coach to cascade their stores, or on a VP
+      // to report to them.
+      if (draggedElementData.type === 'director' && (targetType === 'technician' || targetType === 'coach' || targetType === 'vp')) {
         e.currentTarget.classList.add("drag-hover-target");
       }
       // Restaurant can drop on Director, Coach, Technician, or Entity
@@ -3618,6 +3764,31 @@
     // LIST PANEL BACKGROUND DROPS (Dropping onto empty lists allows assignment reset)
     function handleDragLeaveList(e) {
       e.currentTarget.classList.remove("drag-hover");
+    }
+
+    // DROP: Director dropped on a VP card -> that director reports to this VP.
+    function handleDropOnVpCard(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.currentTarget.classList.remove("drag-hover-target");
+      if (!draggedElementData) return;
+      const targetVpId = e.currentTarget.getAttribute("data-id");
+      const elemId = draggedElementData.id;
+      if (draggedElementData.type !== "director") return;
+      performLockedAction(() => {
+        db.ref(`directors/${elemId}`).update({ assignedVpId: targetVpId });
+      });
+    }
+
+    // DROP: Director dropped on empty VP list space -> unassign from any VP.
+    function handleDropOnVpList(e) {
+      e.preventDefault();
+      e.currentTarget.classList.remove("drag-hover");
+      if (!draggedElementData || draggedElementData.type !== "director") return;
+      const elemId = draggedElementData.id;
+      performLockedAction(() => {
+        db.ref(`directors/${elemId}`).update({ assignedVpId: "" });
+      });
     }
 
     // DROP: Coach dropped on a Director card
@@ -3999,7 +4170,7 @@
         document.getElementById("crudForm").reset();
         document.getElementById("formType").value = type;
         document.getElementById("formId").value = "";
-        const titleText = type === "restaurant" ? "Add New Store" : type === "technician" ? "Add Repair Technician" : type === "entity" ? "Add Legal Entity" : `Add New ${capitalize(type)}`;
+        const titleText = type === "restaurant" ? "Add New Store" : type === "technician" ? "Add Repair Technician" : type === "entity" ? "Add Legal Entity" : type === "vp" ? "Add VP of Operations" : `Add New ${capitalize(type)}`;
         document.getElementById("modalTitle").innerText = titleText;
         
         setupFormFields(type);
@@ -4017,18 +4188,24 @@
         document.getElementById("crudForm").reset();
         document.getElementById("formType").value = type;
         document.getElementById("formId").value = id;
-        const titleText = type === "restaurant" ? "Edit Store" : type === "technician" ? "Edit Repair Technician" : type === "entity" ? "Edit Legal Entity" : `Edit ${capitalize(type)}`;
+        const titleText = type === "restaurant" ? "Edit Store" : type === "technician" ? "Edit Repair Technician" : type === "entity" ? "Edit Legal Entity" : type === "vp" ? "Edit VP of Operations" : `Edit ${capitalize(type)}`;
         document.getElementById("modalTitle").innerText = titleText;
         
         setupFormFields(type);
         if (type === "technician") { renderTechCatGrid([]); renderTechSwatches(""); }
 
         // Populate Form inputs
-        if (type === "director") {
+        if (type === "vp") {
+          const item = vps[id] || {};
+          document.getElementById("inputName").value = item.name || "";
+          document.getElementById("inputEmail").value = item.email || "";
+          document.getElementById("inputPhone").value = item.phone || "";
+        } else if (type === "director") {
           const item = directors[id];
           document.getElementById("inputName").value = item.name || "";
           document.getElementById("inputEmail").value = item.email || "";
           document.getElementById("inputPhone").value = item.phone || "";
+          document.getElementById("selectAssignedVp").value = item.assignedVpId || "";
         } else if (type === "technician") {
           const item = repairTechnicians[id];
           document.getElementById("inputName").value = item.name || "";
@@ -4127,6 +4304,7 @@
       STORE_ONLY_GROUPS.forEach(id => show(id, isStore));
       show("groupName", !isStore);
       show("groupAssignedDirector", type === "coach" || isStore);
+      show("groupAssignedVp", type === "director");   // DO reports to a VP
       show("groupDivision", isStore);
       if (isStore) {
         const dsel = document.getElementById("inputDivision");
@@ -4141,10 +4319,19 @@
     function updateRelationshipDropdowns() {
       const selectDir = document.getElementById("selectAssignedDirector");
       const selectEntity = document.getElementById("selectAssignedEntity");
+      const selectVp = document.getElementById("selectAssignedVp");
 
       // Save user selected values temporarily
       const prevDir = selectDir ? selectDir.value : "";
       const prevEntity = selectEntity ? selectEntity.value : "";
+      const prevVp = selectVp ? selectVp.value : "";
+
+      if (selectVp) {
+        selectVp.innerHTML = `<option value="">-- No VP Assigned --</option>`;
+        Object.keys(vps).forEach(id => {
+          selectVp.innerHTML += `<option value="${id}">${escapeHtml(vps[id].name)}</option>`;
+        });
+      }
 
       if (selectDir) {
         selectDir.innerHTML = `<option value="">-- No Director Assigned --</option>`;
@@ -4163,6 +4350,7 @@
       // Restore selections
       if (selectDir) selectDir.value = prevDir;
       if (selectEntity) selectEntity.value = prevEntity;
+      if (selectVp) selectVp.value = prevVp;
     }
 
     // Assignment pickers: one dropdown per person, "+ Add another" only when needed.
@@ -4256,7 +4444,8 @@
       
       const type = document.getElementById("formType").value;
       let targetRef = "restaurants";
-      if (type === "director") targetRef = "directors";
+      if (type === "vp") targetRef = "vps";
+      else if (type === "director") targetRef = "directors";
       else if (type === "coach") targetRef = "areaCoaches";
       else if (type === "technician") targetRef = "repairTechnicians";
       else if (type === "entity") targetRef = "entities";
@@ -4265,12 +4454,20 @@
 
       const updates = {};
       
-      if (type === "director") {
-        updates[`directors/${id}`] = {
+      if (type === "vp") {
+        updates[`vps/${id}`] = {
           id: id,
           name: document.getElementById("inputName").value,
           email: document.getElementById("inputEmail").value,
           phone: formatPhoneNumber(document.getElementById("inputPhone").value)
+        };
+      } else if (type === "director") {
+        updates[`directors/${id}`] = {
+          id: id,
+          name: document.getElementById("inputName").value,
+          email: document.getElementById("inputEmail").value,
+          phone: formatPhoneNumber(document.getElementById("inputPhone").value),
+          assignedVpId: document.getElementById("selectAssignedVp").value || ""
         };
       } else if (type === "technician") {
         const existingTech = repairTechnicians[id] || {};
@@ -4365,6 +4562,7 @@
     function deleteEntry(type, id) {
       performLockedAction(() => {
         const paths = {
+          'vp': 'vps',
           'director': 'directors',
           'coach': 'areaCoaches',
           'restaurant': 'restaurants',
@@ -4375,6 +4573,7 @@
         if (confirm(`Are you absolutely sure you want to remove this ${type}? It will sever current branch dependencies.`)) {
           db.ref(`${paths[type]}/${id}`).remove(() => {
             // If deleted node was active selection, reset filters safely
+            if (type === 'vp' && selectedVpId === id) selectedVpId = null;
             if (type === 'director' && selectedDirectorId === id) selectedDirectorId = null;
             if (type === 'coach' && selectedCoachId === id) selectedCoachId = null;
             if (type === 'technician' && selectedTechnicianId === id) selectedTechnicianId = null;
@@ -4391,7 +4590,14 @@
               return ids.filter(Boolean);
             };
 
-            if (type === 'technician') {
+            if (type === 'vp') {
+              // Directors reporting to this VP lose the link.
+              Object.keys(directors).forEach(dId => {
+                if (directors[dId].assignedVpId === id) {
+                  db.ref(`directors/${dId}/assignedVpId`).set("");
+                }
+              });
+            } else if (type === 'technician') {
               Object.keys(restaurants).forEach(restId => {
                 const ids = rawIds(restaurants[restId], "assignedRepairTechnicianIds", "assignedRepairTechnicianId");
                 if (ids.indexOf(id) !== -1) {
@@ -5611,6 +5817,7 @@
     // Mobile tab shell: one panel at a time. Each tab maps to a data-panel in
     // column a/b, or the whole stores column. No-op on desktop.
     const M_TABS = {
+      vp:         { col: "a", panel: "vp"         },
       director:   { col: "a", panel: "director"   },
       technician: { col: "a", panel: "technician" },
       coach:      { col: "b", panel: "coach"      },
@@ -5641,6 +5848,7 @@
         const el = document.getElementById(id);
         if (el) el.classList.toggle("has", n > 0);
       };
+      set("mnVp",       Object.keys(vps).length);
       set("mnDirector", Object.keys(directors).length);
       set("mnTech",     Object.keys(repairTechnicians).length);
       set("mnCoach",    Object.keys(areaCoaches).length);
@@ -5666,6 +5874,7 @@
       { key: "agmCell",     label: "AGM Cell",       get: r => r.assistantManagerCell || "" },
       { key: "coach",       label: "District Manager", get: r => getCoachNames(r).join(", ") },
       { key: "director",    label: "Director",       get: r => (r.assignedDirectorId && directors[r.assignedDirectorId]) ? directors[r.assignedDirectorId].name : "" },
+      { key: "vp",          label: "VP",             get: r => vpNameForStore(r) },
       { key: "tech",        label: "Repair Tech",    get: r => getTechNames(r).join(", ") },
       { key: "entity",      label: "Entity",         get: r => exportEntityName(r) },
       { key: "latitude",    label: "Latitude",       get: r => r.latitude || "" },
