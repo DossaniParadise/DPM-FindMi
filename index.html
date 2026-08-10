@@ -912,10 +912,22 @@
 
     @media (max-width: 768px) {
       /* Roomier, readable cards - the core complaint was cramped density. */
-      .card { padding: 14px 16px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(15,23,42,.06); }
-      .card-title { font-size: 1rem; line-height: 1.3; }
-      .card-detail { font-size: 0.9rem; line-height: 1.45; margin-bottom: 4px; }
-      .cards-list { padding: 4px 2px 12px; }
+      .card {
+        padding: 15px 16px; border-radius: 14px; margin-bottom: 11px;
+        border: 1px solid #eef1f7;
+        box-shadow: 0 1px 2px rgba(15,23,42,.04), 0 4px 12px rgba(15,23,42,.03);
+      }
+      .card:active { background: #fafbff; }
+      .card-title { font-size: 1rem; line-height: 1.35; }
+      .card-detail { font-size: 0.9rem; line-height: 1.5; margin-bottom: 5px; }
+      /* The store-number badge: cleaner, brand navy, a touch bigger. */
+      .store-badge { font-size: 0.72rem !important; padding: 3px 7px !important; border-radius: 6px !important; }
+      /* Give the list real breathing room and smooth momentum scroll. */
+      .cards-list {
+        padding: 8px 4px 90px;   /* bottom pad clears the fixed tab bar */
+        -webkit-overflow-scrolling: touch;
+        scroll-behavior: smooth;
+      }
 
       /* Action row: three (or two) big tap targets. */
       .m-actions {
@@ -938,6 +950,14 @@
       /* Missing data: visible but inert, so the row stays a stable grid. */
       .m-act-off { background: #f1f5f9; color: #cbd5e1; pointer-events: none; }
       .m-act-off:active { transform: none; }
+
+      /* Mobile is for lookup, not editing. The Go button already opens maps, so
+         the GPS coordinate row + Open Map are redundant; the per-field Copy
+         buttons are noise next to the tap actions; and edit/delete belong on
+         desktop. Hide all three so the expanded card reads clean. */
+      .js-gps-row { display: none !important; }
+      .js-card-edit { display: none !important; }
+      .card .copy-btn-mini { display: none !important; }
     }
 
     /* Flags a field whose value never leaves the edit dialog. */
@@ -991,22 +1011,12 @@
     .picker-hint { font-size: .68rem; color: #64748b; margin-top: 4px; }
     .picker-warn { color: #b45309; font-weight: 600; }
 
-    /* --- history tray on mobile: hidden until summoned --- */
+    /* --- history tray + its FAB: desktop-only. Nobody triages org-change
+       history from a phone, and on mobile it stole bottom space and cluttered
+       the view. Force off (overrides the later same-specificity desktop rule). */
     #historyTrayFab { display: none; }
     @media (max-width: 768px) {
-      .history-tray { display: none; }
-      .history-tray.mobile-open { display: block; }
-      #historyTrayFab {
-        display: flex; align-items: center; gap: 4px;
-        position: fixed; right: 14px; z-index: 900;
-        /* Sits above the floating tab bar rather than behind it. */
-        bottom: calc(76px + env(safe-area-inset-bottom, 0px));
-        background: var(--primary-color, #251d7f); color: #fff;
-        border: none; border-radius: 999px; padding: 10px 14px;
-        font-size: 1rem; font-weight: 700; cursor: pointer;
-        box-shadow: 0 3px 10px rgba(0,0,0,.3);
-      }
-      #historyFabCount { font-size: .7rem; }
+      .history-tray, #historyTrayFab, #historyFabCount { display: none !important; }
     }
 
     /* --- batch import preview --- */
@@ -1420,7 +1430,7 @@
       /* Header (~56) + floating pill (~62 incl. gap) + safe area. */
       .dashboard-container {
         flex-direction: column;
-        height: calc(100vh - 56px - 72px - env(safe-area-inset-bottom, 0px));
+        height: calc(100vh - 56px - 58px - env(safe-area-inset-bottom, 0px));
         padding: 6px; gap: 0; overflow: hidden;
       }
       .column {
@@ -1439,53 +1449,49 @@
       .card { padding: 10px 12px; }
       .card-actions .btn { min-width: 34px; min-height: 34px; }
 
-      /* Floating pill tab bar, per the reference: detached from the edge, brand
-         navy, active tab marked by a filled circle behind the icon. */
+      /* HEB-style bottom bar: flat, full-width, white with a hairline top
+         border and a soft lift. Icon over label; the active item switches to
+         brand navy. Replaces the earlier floating pill. */
       .m-tabs {
         display: flex; position: fixed; z-index: 1000;
-        left: 12px; right: 12px; bottom: calc(10px + env(safe-area-inset-bottom, 0px));
-        background: var(--navy-700, #251d7f);
-        border-radius: 22px; padding: 6px 4px;
-        box-shadow: 0 6px 20px rgba(37, 29, 127, .35);
+        left: 0; right: 0; bottom: 0;
+        padding: 6px 2px calc(4px + env(safe-area-inset-bottom, 0px));
+        background: #ffffff;
+        border-top: 1px solid #e8ebf3;
+        box-shadow: 0 -2px 14px rgba(15, 23, 42, .06);
       }
       .m-tab {
         flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
-        border: none; background: none; cursor: pointer; padding: 4px 2px;
-        color: rgba(255, 255, 255, .62);
-        font-size: .55rem; font-weight: 600; letter-spacing: .03em;
-        transition: color .18s ease;
+        border: none; background: none; cursor: pointer; padding: 6px 2px;
+        color: #94a3b8;
+        font-size: .58rem; font-weight: 600; letter-spacing: .01em;
+        transition: color .15s ease;
         -webkit-tap-highlight-color: transparent;
       }
-      /* The circle is the active marker; it scales in rather than popping. */
       .m-tab-ico {
         position: relative; display: grid; place-items: center;
-        width: 32px; height: 32px; border-radius: 50%;
-      }
-      .m-tab-ico::before {
-        content: ""; position: absolute; inset: 0; border-radius: 50%;
-        background: #fff; transform: scale(0); transition: transform .18s ease;
+        width: 26px; height: 26px;
       }
       .m-tab-ico svg {
-        position: relative; width: 18px; height: 18px;
+        position: relative; width: 23px; height: 23px;
         fill: none; stroke: currentColor; stroke-width: 1.7;
         stroke-linecap: round; stroke-linejoin: round;
+        transition: stroke-width .15s ease;
       }
-      .m-tab.on { color: #fff; }
-      .m-tab.on .m-tab-ico::before { transform: scale(1); }
-      .m-tab.on .m-tab-ico { color: var(--navy-700, #251d7f); }
+      .m-tab.on { color: var(--navy-700, #251d7f); }
+      .m-tab.on .m-tab-ico svg { stroke-width: 2.1; }
 
-      /* Count badge: a dot, not a number, so it reads at a glance. */
+      /* Count badge: a dot on the icon, brand amber. */
       .m-dot {
-        position: absolute; top: 1px; right: 1px;
+        position: absolute; top: -1px; right: -1px;
         width: 7px; height: 7px; border-radius: 50%;
-        background: #f59e0b; border: 1.5px solid var(--navy-700, #251d7f);
+        background: #f59e0b; border: 1.5px solid #fff;
         display: none;
       }
       .m-dot.has { display: block; }
-      .m-tab.on .m-dot { border-color: #fff; }
 
       @media (prefers-reduced-motion: reduce) {
-        .m-tab, .m-tab-ico::before { transition: none; }
+        .m-tab, .m-tab-ico svg { transition: none; }
       }
 
       /* Full-screen map takes over the viewport; the tab bar would float on top
@@ -1510,37 +1516,30 @@
       .header-logo h1 {
         font-size: 0.95rem !important;
       }
+      /* Landscape keeps the SAME one-panel tab-shell as portrait - the old
+         "force 3 columns side by side and scroll" was the cluttered mess in
+         landscape. Landscape just has more width, so cards center in a
+         comfortable column and the list breathes. */
       .dashboard-container {
-        flex-direction: row !important; /* Force side-by-side */
-        height: calc(100vh - 64px) !important;
-        overflow-x: auto !important; /* Allow side scrolling */
-        overflow-y: hidden !important;
-        align-items: stretch !important;
-        flex-wrap: nowrap !important;
-        padding: 4px !important;
-        gap: 6px !important;
+        flex-direction: column !important;
+        height: calc(100vh - 52px - 58px - env(safe-area-inset-bottom, 0px)) !important;
+        overflow: hidden !important;
+        padding: 6px 0 !important;
+        gap: 0 !important;
       }
       .column {
-        height: 100% !important;
-        flex: 0 0 240px !important; /* Fixed width in landscape scroll mode */
-        width: 240px !important;
-        min-width: 240px !important;
+        display: none !important;
+        width: 100% !important; min-width: 0 !important; max-width: none !important;
+        flex: 1 1 auto !important; height: 100% !important;
       }
-      .column:nth-child(3) {
-        flex: 0 0 480px !important; /* Much wider for Grid layout columns */
-        width: 480px !important;
-        min-width: 480px !important;
-      }
+      .column.m-active { display: flex !important; flex-direction: column !important; }
+      .m-panel { display: none !important; flex: 1 1 auto; overflow: hidden; }
+      .m-panel.m-active { display: flex !important; flex-direction: column; }
       .cards-list {
-        padding: 4px !important;
-        gap: 4px !important;
+        padding: 6px 0 12px !important;
+        max-width: 640px; margin: 0 auto; width: 100%;
       }
-      .card {
-        padding: 6px !important;
-      }
-      .history-tray {
-        display: none !important; /* Save precious room on small height phones */
-      }
+      .history-tray, #historyTrayFab { display: none !important; }
     }
 
     /* ===== Kiosk Map View ===== */
@@ -1716,7 +1715,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v4.6 Vercel API</span>
+      <span>v4.7 Vercel API</span>
     </div>
     
     <div class="header-actions">
@@ -3687,7 +3686,7 @@
                 <span class="store-badge" style="background-color: #2563eb; color: #ffffff; font-size: 0.7rem; padding: 2px 5px; border-radius: 4px; font-weight: bold; font-family: monospace; flex-shrink: 0;">${escapeHtml(rest.storeNumber || '#')}</span>
                 <span class="font-bold" style="font-size: 0.88rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 1;">${escapeHtml(rest.storeName)}</span>
               </div>
-              <div class="card-actions" style="flex-shrink: 0; display: flex; gap: 4px; margin-left: 6px;">
+              <div class="card-actions js-card-edit" style="flex-shrink: 0; display: flex; gap: 4px; margin-left: 6px;">
                 <button class="btn btn-icon btn-icon-edit" onmousedown="event.stopPropagation();" onclick="event.stopPropagation(); openEditModal('restaurant', '${restId}')" title="Edit">✎</button>
                 <button class="btn btn-icon btn-icon-delete" onmousedown="event.stopPropagation();" onclick="event.stopPropagation(); deleteEntry('restaurant', '${restId}')" title="Delete">✕</button>
               </div>
@@ -3726,7 +3725,7 @@
                 ${rest.email ? `<button class="copy-btn-mini" onclick="copyTextToClipboard(this.getAttribute('data-text'), this)" data-text="${escapeHtml(rest.email)}">📋 Copy</button>` : ''}
               </div>
               ${(rest.latitude || rest.longitude) ? `
-                <div class="card-detail" style="color: #0369a1; font-weight: 550; display: flex; align-items: center; justify-content: space-between; margin-top: 2px; width: 100%;">
+                <div class="card-detail js-gps-row" style="color: #0369a1; font-weight: 550; display: flex; align-items: center; justify-content: space-between; margin-top: 2px; width: 100%;">
                   <span style="overflow: hidden; text-overflow: ellipsis;">🌐 GPS: ${escapeHtml(rest.latitude || 'N/A')}, ${escapeHtml(rest.longitude || 'N/A')}</span>
                   <div style="display: inline-flex; gap: 4px; flex-shrink: 0; align-items: center;">
                     <button class="copy-btn-mini" onclick="copyTextToClipboard(this.getAttribute('data-text'), this)" data-text="${escapeHtml(rest.latitude)}, ${escapeHtml(rest.longitude)}">📋 Copy</button>
