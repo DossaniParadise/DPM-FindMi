@@ -1681,7 +1681,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v4.3 Vercel API</span>
+      <span>v4.4 Vercel API</span>
     </div>
     
     <div class="header-actions">
@@ -6653,12 +6653,45 @@
       } catch (e) {}
 
       const bounds = [];
+
+      // Combo stores (two brands, one building) share an address and therefore
+      // the same lat/lng. Placed at identical coordinates they stack on one
+      // pixel and only the top pin is visible or clickable. Detect any group of
+      // 2+ stores at the same point and fan them out in a small ring so each
+      // gets its own pin. The offset is a few meters of latitude/longitude -
+      // large enough to separate the pins, small enough to still read as "same
+      // spot". bounds still uses the true coordinate so fit/zoom is unaffected.
+      const __coincat = {};
+      plotted.forEach((p) => {
+        const k = p.ll[0].toFixed(6) + "," + p.ll[1].toFixed(6);
+        (__coincat[k] = __coincat[k] || []).push(p);
+      });
+      const __spreadIndex = new Map();   // restId -> {i, n} within its cluster
+      Object.values(__coincat).forEach((group) => {
+        if (group.length > 1) {
+          group.forEach((p, i) => __spreadIndex.set(p.restId, { i, n: group.length, lat: p.ll[0] }));
+        }
+      });
+
+      // Ring radius ~ 8 meters, converted to degrees. Longitude scales by
+      // latitude (meridians converge toward the poles), so we correct with cos.
+      function __fanned(restId, ll) {
+        const s = __spreadIndex.get(restId);
+        if (!s) return ll;                       // not part of a cluster
+        const metersR = 8;
+        const dLat = metersR / 111320;           // meters per degree latitude
+        const dLng = metersR / (111320 * Math.cos(ll[0] * Math.PI / 180) || 1);
+        const ang = (2 * Math.PI * s.i) / s.n;   // even spacing around the ring
+        return [ll[0] + dLat * Math.sin(ang), ll[1] + dLng * Math.cos(ang)];
+      }
+
       plotted.forEach(({ restId, rest, ll, groupKeys }) => {
         const keys = (groupKeys || []).filter(Boolean);
         const isAssigned = keys.length > 0;
         // One pin per store. Several groups -> a split pin carrying each colour.
         const cols = isAssigned ? keys.map(k => colors[k] || "#64748b") : ["#64748b"];
-        const marker = L.marker(ll, { icon: __mapPinIcon(cols, !isAssigned), riseOnHover: true, bubblingMouseEvents: false }).addTo(map);
+        const pos = __fanned(restId, ll);        // fanned if it collides, else exact
+        const marker = L.marker(pos, { icon: __mapPinIcon(cols, !isAssigned), riseOnHover: true, bubblingMouseEvents: false }).addTo(map);
         if (!__isTouchDevice) {
           const who = keys.length ? " — " + keys.map(k => groupLabel[k]).filter(Boolean).join(" + ") : "";
           marker.bindTooltip((rest.storeName || "Store") + who, { direction: "top", offset: [0, -30] });
@@ -6666,7 +6699,7 @@
         marker.bindPopup(__mapPopupHtml(restId, rest), { maxWidth: 280, autoPan: true, autoPanPadding: [40, 60] });
         // Registered under every group so legend filtering still highlights it.
         __mapMarkers.push({ marker, restId, groupKey: keys[0] || "__unassigned__", groupKeys: keys });
-        bounds.push(ll);
+        bounds.push(ll);   // true coordinate keeps fit/zoom correct
       });
 
       if (bounds.length === 0) map.setView([31.9686, -99.9018], 6);
