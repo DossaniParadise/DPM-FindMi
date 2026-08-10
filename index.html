@@ -965,6 +965,21 @@
       .card .copy-btn-mini { display: none !important; }
     }
 
+    /* Store filter dropdowns (DM / Entity / Division). */
+    .store-filter-row { display: flex; gap: 6px; }
+    .store-filter-sel {
+      flex: 1; min-width: 0; padding: 4px 6px; font-size: 0.72rem;
+      border: 1px solid #cbd5e1; border-radius: 5px; background: var(--bg-white); color: #0f172a;
+    }
+    @media (max-width: 768px) {
+      /* Roomier, tappable filters on mobile - the HEB-style quick filters. */
+      .store-filter-row { gap: 8px; flex-wrap: wrap; }
+      .store-filter-sel {
+        flex: 1 1 100%; padding: 11px 12px; font-size: 0.9rem; border-radius: 10px;
+        background: #f8fafc; font-weight: 600; color: #251d7f;
+      }
+    }
+
     /* Flags a field whose value never leaves the edit dialog. */
     .field-private { font-weight: 400; font-size: .65rem; color: #b45309; letter-spacing: .01em; }
     .field-opt { font-weight: 400; font-size: .65rem; color: #94a3b8; }
@@ -1606,7 +1621,11 @@
     #mapDrawerToggles { display: none; }
     #mapScrim { display: none; }
 
-    @media (max-width: 768px) {
+    /* Fires for BOTH portrait phones (narrow) AND landscape phones (short).
+       A landscape iPhone is ~844px wide - wider than 768 - so a width-only
+       query missed it and the desktop dual-panel layout leaked through. That
+       was the "landscape still has both drawers" bug. max-height catches it. */
+    @media (max-width: 768px), (max-height: 550px) {
       /* Left "Store Directory" tree is desktop-only - on a phone the map is
          just pins + the filter sheet. Hide the panel and its toggle button. */
       body.map-kiosk-active #mapRail,
@@ -1625,7 +1644,9 @@
         max-height: 62vh;
         overflow-y: auto;                 /* content scrolls inside the sheet */
         -webkit-overflow-scrolling: touch;
-        z-index: 1080;
+        z-index: 1080 !important;         /* MUST beat inline z-index:1000, or the
+                                             scrim (1040) covers the panel and eats
+                                             every tap - the "filter freezes" bug. */
         transition: transform 0.3s ease;
         will-change: transform;
       }
@@ -1740,7 +1761,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v4.8 Vercel API</span>
+      <span>v4.9 Vercel API</span>
     </div>
     
     <div class="header-actions">
@@ -1924,6 +1945,20 @@
             <option value="name_desc">Name (Z-A)</option>
             <option value="number_asc">Store Number (Asc)</option>
             <option value="number_desc">Store Number (Desc)</option>
+          </select>
+        </div>
+
+        <!-- Filter dropdowns: DM / Entity / Division. Populated in JS. These
+             filter the visible store list directly (respected by search+export). -->
+        <div class="store-filter-row" id="storeFilterRow">
+          <select class="control-select store-filter-sel" id="filterByCoach" onchange="setStoreFilterCoach(this.value)" aria-label="Filter by District Manager">
+            <option value="">All District Managers</option>
+          </select>
+          <select class="control-select store-filter-sel" id="filterByEntity" onchange="setStoreFilterEntity(this.value)" aria-label="Filter by Entity">
+            <option value="">All Entities</option>
+          </select>
+          <select class="control-select store-filter-sel" id="filterByDivision" onchange="setStoreFilterDivision(this.value)" aria-label="Filter by Division">
+            <option value="">All Divisions</option>
           </select>
         </div>
       </div>
@@ -2397,6 +2432,46 @@
 
     let selectedVpId = null;
     let selectedDirectorId = null;
+
+    // Store-list dropdown filters (mobile + desktop). Independent of the
+    // left/middle column selection filters; these narrow the Stores list.
+    let storeFilterCoachId = "";
+    let storeFilterEntityId = "";
+    let storeFilterDivision = "";
+
+    function setStoreFilterCoach(v) { storeFilterCoachId = v || ""; renderRestaurants(); }
+    function setStoreFilterEntity(v) { storeFilterEntityId = v || ""; renderRestaurants(); }
+    function setStoreFilterDivision(v) { storeFilterDivision = v || ""; renderRestaurants(); }
+
+    // Populate the three filter dropdowns from current data, preserving any
+    // active selection. Called from renderAll so options stay in sync.
+    function populateStoreFilters() {
+      const coachSel = document.getElementById("filterByCoach");
+      const entitySel = document.getElementById("filterByEntity");
+      const divSel = document.getElementById("filterByDivision");
+      if (coachSel) {
+        const prev = storeFilterCoachId;
+        coachSel.innerHTML = '<option value="">All District Managers</option>' +
+          Object.keys(areaCoaches)
+            .sort((a, b) => (areaCoaches[a].name || "").localeCompare(areaCoaches[b].name || ""))
+            .map(id => `<option value="${id}">${escapeHtml(areaCoaches[id].name || "")}</option>`).join("");
+        coachSel.value = prev;
+      }
+      if (entitySel) {
+        const prev = storeFilterEntityId;
+        entitySel.innerHTML = '<option value="">All Entities</option>' +
+          Object.keys(entities)
+            .sort((a, b) => (entities[a].name || "").localeCompare(entities[b].name || ""))
+            .map(id => `<option value="${id}">${escapeHtml(entities[id].name || "")}</option>`).join("");
+        entitySel.value = prev;
+      }
+      if (divSel && divSel.options.length <= 1) {
+        // Divisions are static; build once.
+        divSel.innerHTML = '<option value="">All Divisions</option>' +
+          DIVISIONS.map(d => `<option value="${d.key}">${escapeHtml(d.label)}</option>`).join("");
+        divSel.value = storeFilterDivision;
+      }
+    }
     let selectedCoachId = null;
     let selectedTechnicianId = null;
     let selectedEntityId = null;
@@ -2747,6 +2822,7 @@
       renderRestaurants();
       renderHistory();
       updateFilterBars();
+      populateStoreFilters();
       mSyncCounts();
     }
 
@@ -3588,6 +3664,25 @@
                  coachName.includes(query) ||
                  dirName.includes(query);
         });
+      }
+
+      // 1b. Dropdown filters (District Manager / Entity / Division). Each is
+      // independent and ANDs with the others and with search.
+      if (storeFilterCoachId) {
+        keys = keys.filter(id => storeHasCoach(restaurants[id], storeFilterCoachId));
+      }
+      if (storeFilterEntityId) {
+        keys = keys.filter(id => {
+          const r = restaurants[id];
+          if (!r) return false;
+          if (r.assignedEntityId) return r.assignedEntityId === storeFilterEntityId;
+          // Fall back to the free-text entity name matching the selected entity.
+          const ent = entities[storeFilterEntityId];
+          return ent && r.entity && r.entity === ent.name;
+        });
+      }
+      if (storeFilterDivision) {
+        keys = keys.filter(id => storeDivision(restaurants[id]) === storeFilterDivision);
       }
 
       // Helper to parse clean numeric value of store number
