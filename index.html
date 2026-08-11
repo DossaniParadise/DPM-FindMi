@@ -965,6 +965,20 @@
       .card .copy-btn-mini { display: none !important; }
     }
 
+    /* Support Staff: department group headers + head badge. */
+    .staff-dept-header {
+      font-size: 0.68rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
+      color: #64748b; padding: 10px 6px 4px; margin-top: 2px;
+    }
+    .staff-head-badge {
+      display: inline-block; font-size: 0.6rem; font-weight: 700; letter-spacing: .02em;
+      background: #251d7f; color: #fff; padding: 1px 6px; border-radius: 999px;
+      vertical-align: middle; margin-left: 5px;
+    }
+    @media (max-width: 768px) {
+      .staff-dept-header { font-size: 0.72rem; padding: 14px 4px 6px; }
+    }
+
     /* Store filter dropdowns (DM / Entity / Division). */
     .store-filter-row { display: flex; gap: 6px; }
     .store-filter-sel {
@@ -1761,7 +1775,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v4.9 Vercel API</span>
+      <span>v5.0 Vercel API</span>
     </div>
     
     <div class="header-actions">
@@ -1802,23 +1816,24 @@
     
     <!-- LEFT COLUMN - DIRECTORS & TECHNICIANS -->
     <section class="column" data-col="a" style="display: flex; flex-direction: column;">
-      <!-- VP of Operations (Top) -->
+      <!-- Support Staff (Top) -->
       <div class="m-panel" data-panel="vp" style="flex: 1; display: flex; flex-direction: column; overflow: hidden; border-bottom: 2px solid var(--neutral-border);">
         <div class="column-header m-panel-head">
           <div class="column-title">
-            VP of Operations
+            Support Staff
             <span class="column-counter" id="vpCount">0</span>
           </div>
           <button class="btn btn-primary btn-xs" onclick="openCreateModal('vp')">+ Add</button>
         </div>
 
-        <div id="vpFilterBar" class="filter-message-bar" style="display: none;">
-          <span id="vpFilterText" style="font-weight: 500;">Filtered by VP</span>
-          <button class="clear-filter-btn" onclick="clearVpFilters()">Show All</button>
+        <div class="column-action-bar" style="padding: 6px 10px;">
+          <select class="control-select" id="staffDeptFilter" onchange="setStaffDeptFilter(this.value)" aria-label="Filter Support Staff by department" style="width: 100%; padding: 5px 8px; font-size: 0.75rem;">
+            <option value="">All Departments</option>
+          </select>
         </div>
 
-        <div class="cards-list" id="vpsList" style="flex: 1; overflow-y: auto;" ondragover="handleDragOverList(event)" ondragleave="handleDragLeaveList(event)" ondrop="handleDropOnVpList(event)">
-          <!-- VPs loaded dynamically -->
+        <div class="cards-list" id="vpsList" style="flex: 1; overflow-y: auto;">
+          <!-- Support staff loaded dynamically -->
         </div>
       </div>
 
@@ -2052,8 +2067,8 @@
   <!-- Mobile bottom tab bar. Icons are inline SVG (emoji render differently per
        device and would break the monochrome look). Stores is the default view. -->
   <nav class="m-tabs" id="mTabs" aria-label="Sections">
-    <button class="m-tab" data-tab="vp" onclick="mShow('vp')" aria-label="VP of Operations">
-      <span class="m-tab-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4L12 14.8 7.2 17.3l.9-5.4L4.2 8.1l5.4-.8z"/></svg><i class="m-dot" id="mnVp"></i></span>VP</button>
+    <button class="m-tab" data-tab="vp" onclick="mShow('vp')" aria-label="Support Staff">
+      <span class="m-tab-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 6.5a3 3 0 0 1 0 6"/><path d="M17.5 14.5a5.5 5.5 0 0 1 3 5.5"/></svg><i class="m-dot" id="mnVp"></i></span>Staff</button>
     <button class="m-tab" data-tab="director" onclick="mShow('director')" aria-label="Directors of Operations">
       <span class="m-tab-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/><path d="M9 13.5 12 17l3-3.5"/></svg><i class="m-dot" id="mnDirector"></i></span>DO</button>
     <button class="m-tab" data-tab="technician" onclick="mShow('technician')" aria-label="Repair technicians">
@@ -2171,6 +2186,29 @@
             <input type="text" id="inputPhone" placeholder="e.g. (817) 555-0199">
           </div>
 
+          <!-- Support Staff-only fields -->
+          <div class="form-group" id="groupStaffTitle" style="display: none;">
+            <label for="inputStaffTitle">Job Title</label>
+            <input type="text" id="inputStaffTitle" placeholder="e.g. IT Support Specialist" autocomplete="off">
+          </div>
+
+          <div class="form-group" id="groupStaffDept" style="display: none;">
+            <label for="inputStaffDept">Department</label>
+            <input type="text" id="inputStaffDept" list="staffDeptOptions" placeholder="e.g. IT" autocomplete="off">
+            <datalist id="staffDeptOptions"></datalist>
+          </div>
+
+          <div class="form-group" id="groupStaffPhoneHint" style="display: none;">
+            <span class="field-opt" style="font-size:.68rem;">Phone tip: for an extension, add it after a comma — e.g. 817-555-0199,123 (phones dial the pause + extension).</span>
+          </div>
+
+          <div class="form-group" id="groupStaffHead" style="display: none;">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <input type="checkbox" id="inputStaffHead" style="width: auto;">
+              <span>Head of this department <span class="field-opt">(listed first when filtering by department)</span></span>
+            </label>
+          </div>
+
           <!-- Form explicit relationships dropdown selector -->
           <div class="form-group" id="groupAssignedVp" style="display: none;">
             <label for="selectAssignedVp">Reports to VP</label>
@@ -2248,6 +2286,12 @@
         </div>
         <div id="exportColumnList" style="display:grid; grid-template-columns:1fr 1fr; gap:4px 14px; max-height:300px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px; padding:10px;">
           <!-- checkboxes injected -->
+        </div>
+        <div id="exportStaffWrap" style="display:none; margin-top:10px; padding-top:10px; border-top:1px solid #e2e8f0;">
+          <label style="display:flex; align-items:center; gap:8px; font-size:0.8rem; cursor:pointer;">
+            <input type="checkbox" id="exportStaffToggle">
+            <span>Also include a <strong>Support Staff</strong> sheet <span id="exportStaffCount" style="color:#64748b;"></span></span>
+          </label>
         </div>
       </div>
       <div class="modal-footer">
@@ -3090,67 +3134,144 @@
 
     // Render VP of Operations (top of left column). VPs are the top tier;
     // directors drop onto a VP to report to them.
+    // ---- Support Staff directory ----
+    // Standalone people directory (data still stored under `vps` for continuity).
+    // Fields: name, jobTitle, department, email, phone. `deptHead` bubbles a
+    // person to the top of their department. Sort: by department, dept head
+    // first within each, then alphabetical by name.
+    let staffDeptFilter = "";
+
+    function setStaffDeptFilter(v) { staffDeptFilter = v || ""; renderVps(); }
+
+    // Distinct department names present in the data (for the filter dropdown).
+    function staffDepartments() {
+      const set = new Set();
+      Object.keys(vps).forEach(id => {
+        const d = (vps[id].department || "").trim();
+        if (d) set.add(d);
+      });
+      return Array.from(set).sort((a, b) => a.localeCompare(b));
+    }
+
+    // Ordered staff ids: grouped by department, dept-head first, then A-Z.
+    function sortedStaffIds() {
+      let ids = Object.keys(vps);
+      if (staffDeptFilter) {
+        ids = ids.filter(id => (vps[id].department || "").trim() === staffDeptFilter);
+      }
+      return ids.sort((a, b) => {
+        const A = vps[a], B = vps[b];
+        const depA = (A.department || "").toLowerCase();
+        const depB = (B.department || "").toLowerCase();
+        if (depA !== depB) return depA.localeCompare(depB);   // group by department
+        // Within a department: heads first...
+        const headA = A.deptHead ? 0 : 1;
+        const headB = B.deptHead ? 0 : 1;
+        if (headA !== headB) return headA - headB;
+        // ...then alphabetical by name.
+        return (A.name || "").localeCompare(B.name || "");
+      });
+    }
+
     function renderVps() {
       const listDiv = document.getElementById("vpsList");
       const countSpan = document.getElementById("vpCount");
       if (!listDiv) return;
-      const keys = Object.keys(vps);
-      if (countSpan) countSpan.innerText = keys.length;
+
+      // Keep the department filter dropdown in sync with the data.
+      const deptSel = document.getElementById("staffDeptFilter");
+      if (deptSel) {
+        const prev = staffDeptFilter;
+        deptSel.innerHTML = '<option value="">All Departments</option>' +
+          staffDepartments().map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join("");
+        deptSel.value = prev;
+      }
+
+      const ids = sortedStaffIds();
+      if (countSpan) countSpan.innerText = Object.keys(vps).length;
       listDiv.innerHTML = "";
 
-      if (keys.length === 0) {
-        listDiv.innerHTML = `<div class="card" style="text-align: center; color: var(--text-muted);">No VP yet. Click + Add</div>`;
+      if (Object.keys(vps).length === 0) {
+        listDiv.innerHTML = `<div class="card" style="text-align: center; color: var(--text-muted);">No staff yet. Click + Add</div>`;
+        return;
+      }
+      if (ids.length === 0) {
+        listDiv.innerHTML = `<div class="card" style="text-align: center; color: var(--text-muted);">No staff in this department.</div>`;
         return;
       }
 
-      keys.forEach((vpId) => {
-        const vp = vps[vpId];
-        const isSelected = selectedVpId === vpId;
-        const isExpanded = expandedVpId === vpId;
+      let lastDept = null;
+      ids.forEach((sid) => {
+        const p = vps[sid];
+        const dept = (p.department || "").trim();
 
+        // Department header row (only when NOT already filtered to one dept).
+        if (!staffDeptFilter && dept !== lastDept) {
+          lastDept = dept;
+          const hdr = document.createElement("div");
+          hdr.className = "staff-dept-header";
+          hdr.textContent = dept || "No Department";
+          listDiv.appendChild(hdr);
+        }
+
+        const isExpanded = expandedVpId === sid;
         const card = document.createElement("div");
-        card.className = `card ${isSelected ? 'selected' : ''}`;
-        card.setAttribute("data-id", vpId);
+        card.className = "card";
+        card.setAttribute("data-id", sid);
         card.setAttribute("data-type", "vp");
+        card.addEventListener("click", () => toggleVpExpand(sid));
 
-        card.addEventListener("click", () => toggleVpExpand(vpId));
-        card.addEventListener("dragover", handleDragOverCard);
-        card.addEventListener("dragleave", handleDragLeaveCard);
-        card.addEventListener("drop", handleDropOnVpCard);
+        const headBadge = p.deptHead ? ` <span class="staff-head-badge">Head</span>` : "";
 
         if (isExpanded) {
-          const doCount = directorsForVp(vpId).length;
           card.innerHTML = `
             <div class="card-header-row">
-              <div class="card-title">${escapeHtml(vp.name)} <span style="font-weight: normal; color: #3b82f6; font-size: 0.72rem; margin-left: 4px;">(Active)</span></div>
+              <div class="card-title">${escapeHtml(p.name)}${headBadge}</div>
               <div class="card-actions">
-                <button class="btn btn-icon btn-icon-edit" onclick="event.stopPropagation(); openEditModal('vp', '${vpId}')">✎</button>
-                <button class="btn btn-icon btn-icon-delete" onclick="event.stopPropagation(); deleteEntry('vp', '${vpId}')">✕</button>
+                <button class="btn btn-icon btn-icon-edit" onclick="event.stopPropagation(); openEditModal('vp', '${sid}')">✎</button>
+                <button class="btn btn-icon btn-icon-delete" onclick="event.stopPropagation(); deleteEntry('vp', '${sid}')">✕</button>
               </div>
             </div>
             <div class="card-details-block" onmousedown="event.stopPropagation();" onclick="event.stopPropagation();" style="pointer-events: auto !important; margin-top: 6px;">
-              ${mPersonActions(vp)}
+              ${mPersonActions(p)}
+              ${p.jobTitle ? `<div class="card-detail"><span>💼 ${escapeHtml(p.jobTitle)}</span></div>` : ''}
+              ${dept ? `<div class="card-detail"><span>🏢 ${escapeHtml(dept)}</span></div>` : ''}
               <div class="card-detail" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                <span>✉ ${escapeHtml(vp.email || 'No email')}</span>
-                ${vp.email ? `<button class="copy-btn-mini" onclick="copyTextToClipboard(this.getAttribute('data-text'), this)" data-text="${escapeHtml(vp.email)}">📋 Copy</button>` : ''}
+                <span>✉ ${escapeHtml(p.email || 'No email')}</span>
+                ${p.email ? `<button class="copy-btn-mini" onclick="copyTextToClipboard(this.getAttribute('data-text'), this)" data-text="${escapeHtml(p.email)}">📋 Copy</button>` : ''}
               </div>
               <div class="card-detail" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                <span>☎ ${escapeHtml(formatPhoneNumber(vp.phone) || 'No phone')}</span>
-                ${vp.phone ? `<button class="copy-btn-mini" onclick="copyTextToClipboard(this.getAttribute('data-text'), this)" data-text="${escapeHtml(formatPhoneNumber(vp.phone))}">📋 Copy</button>` : ''}
+                <span>☎ ${escapeHtml(formatStaffPhone(p.phone) || 'No phone')}</span>
+                ${p.phone ? `<button class="copy-btn-mini" onclick="copyTextToClipboard(this.getAttribute('data-text'), this)" data-text="${escapeHtml(formatStaffPhone(p.phone))}">📋 Copy</button>` : ''}
               </div>
-              <div class="card-detail"><span>👥 ${doCount} Director${doCount === 1 ? "" : "s"} reporting</span></div>
             </div>
           `;
         } else {
           card.innerHTML = `
             <div class="card-header-row" style="margin-bottom: 0; align-items: center;">
-              <div class="card-title">${escapeHtml(vp.name)}</div>
-              <span style="font-size: 0.65rem; color: #a1a1aa; font-weight: 500;">Click to reveal</span>
+              <div class="card-title">${escapeHtml(p.name)}${headBadge}</div>
+              <span style="font-size: 0.7rem; color: #64748b; font-weight: 500; text-align: right;">${escapeHtml(p.jobTitle || "")}</span>
             </div>
           `;
         }
         listDiv.appendChild(card);
       });
+    }
+
+    // Phone formatter that preserves a dialable extension after a comma.
+    // "2545551234,789" -> "254-555-1234,789". Plain 10-digit uses the standard
+    // formatter. Anything non-standard passes through untouched.
+    function formatStaffPhone(raw) {
+      if (!raw) return "";
+      const s = String(raw).trim();
+      const commaIdx = s.search(/[,;]/);
+      if (commaIdx !== -1) {
+        const base = s.slice(0, commaIdx);
+        const ext = s.slice(commaIdx + 1).replace(/[^0-9]/g, "");
+        const baseFmt = formatPhoneNumber(base) || base.trim();
+        return ext ? `${baseFmt},${ext}` : baseFmt;
+      }
+      return formatPhoneNumber(s) || s;
     }
 
     // Render operations column
@@ -4350,7 +4471,7 @@
         document.getElementById("crudForm").reset();
         document.getElementById("formType").value = type;
         document.getElementById("formId").value = "";
-        const titleText = type === "restaurant" ? "Add New Store" : type === "technician" ? "Add Repair Technician" : type === "entity" ? "Add Legal Entity" : type === "vp" ? "Add VP of Operations" : `Add New ${capitalize(type)}`;
+        const titleText = type === "restaurant" ? "Add New Store" : type === "technician" ? "Add Repair Technician" : type === "entity" ? "Add Legal Entity" : type === "vp" ? "Add Support Staff" : `Add New ${capitalize(type)}`;
         document.getElementById("modalTitle").innerText = titleText;
         
         setupFormFields(type);
@@ -4368,7 +4489,7 @@
         document.getElementById("crudForm").reset();
         document.getElementById("formType").value = type;
         document.getElementById("formId").value = id;
-        const titleText = type === "restaurant" ? "Edit Store" : type === "technician" ? "Edit Repair Technician" : type === "entity" ? "Edit Legal Entity" : type === "vp" ? "Edit VP of Operations" : `Edit ${capitalize(type)}`;
+        const titleText = type === "restaurant" ? "Edit Store" : type === "technician" ? "Edit Repair Technician" : type === "entity" ? "Edit Legal Entity" : type === "vp" ? "Edit Support Staff" : `Edit ${capitalize(type)}`;
         document.getElementById("modalTitle").innerText = titleText;
         
         setupFormFields(type);
@@ -4380,6 +4501,9 @@
           document.getElementById("inputName").value = item.name || "";
           document.getElementById("inputEmail").value = item.email || "";
           document.getElementById("inputPhone").value = item.phone || "";
+          document.getElementById("inputStaffTitle").value = item.jobTitle || "";
+          document.getElementById("inputStaffDept").value = item.department || "";
+          document.getElementById("inputStaffHead").checked = !!item.deptHead;
         } else if (type === "director") {
           const item = directors[id];
           document.getElementById("inputName").value = item.name || "";
@@ -4484,7 +4608,17 @@
       STORE_ONLY_GROUPS.forEach(id => show(id, isStore));
       show("groupName", !isStore);
       show("groupAssignedDirector", type === "coach" || isStore);
-      show("groupAssignedVp", type === "director");   // DO reports to a VP
+      show("groupAssignedVp", false);   // Support Staff no longer link to DOs
+      // Support Staff fields (type "vp" retained as the storage key).
+      const isStaff = type === "vp";
+      show("groupStaffTitle", isStaff);
+      show("groupStaffDept", isStaff);
+      show("groupStaffPhoneHint", isStaff);
+      show("groupStaffHead", isStaff);
+      if (isStaff) {
+        const dl = document.getElementById("staffDeptOptions");
+        if (dl) dl.innerHTML = staffDepartments().map(d => `<option value="${escapeHtml(d)}">`).join("");
+      }
       show("groupDivision", isStore);
       if (isStore) {
         const dsel = document.getElementById("inputDivision");
@@ -4635,11 +4769,17 @@
       const updates = {};
       
       if (type === "vp") {
+        // Support Staff. Phone kept raw-ish so an extension after a comma
+        // survives; display formatting happens in formatStaffPhone.
+        const rawPhone = document.getElementById("inputPhone").value.trim();
         updates[`vps/${id}`] = {
           id: id,
           name: document.getElementById("inputName").value,
+          jobTitle: document.getElementById("inputStaffTitle").value.trim(),
+          department: document.getElementById("inputStaffDept").value.trim(),
           email: document.getElementById("inputEmail").value,
-          phone: formatPhoneNumber(document.getElementById("inputPhone").value)
+          phone: rawPhone,
+          deptHead: !!document.getElementById("inputStaffHead").checked
         };
       } else if (type === "director") {
         updates[`directors/${id}`] = {
@@ -6054,7 +6194,6 @@
       { key: "agmCell",     label: "AGM Cell",       get: r => r.assistantManagerCell || "" },
       { key: "coach",       label: "District Manager", get: r => getCoachNames(r).join(", ") },
       { key: "director",    label: "Director",       get: r => (r.assignedDirectorId && directors[r.assignedDirectorId]) ? directors[r.assignedDirectorId].name : "" },
-      { key: "vp",          label: "VP",             get: r => vpNameForStore(r) },
       { key: "tech",        label: "Repair Tech",    get: r => getTechNames(r).join(", ") },
       { key: "entity",      label: "Entity",         get: r => exportEntityName(r) },
       { key: "latitude",    label: "Latitude",       get: r => r.latitude || "" },
@@ -6075,6 +6214,16 @@
           <input type="checkbox" value="${c.key}" ${EXPORT_DEFAULT.indexOf(c.key) !== -1 ? "checked" : ""} onchange="updateExportCount()">
           <span>${escapeHtml(c.label)}</span>
         </label>`).join("");
+      // Extra option: include a second sheet of Support Staff.
+      const staffWrap = document.getElementById("exportStaffWrap");
+      if (staffWrap) {
+        const n = Object.keys(vps).length;
+        staffWrap.style.display = n ? "block" : "none";
+        const cb = document.getElementById("exportStaffToggle");
+        if (cb) cb.checked = false;
+        const lbl = document.getElementById("exportStaffCount");
+        if (lbl) lbl.innerText = `${n} ${n === 1 ? "person" : "people"}`;
+      }
       updateExportCount();
       document.getElementById("exportModal").classList.add("active");
     }
@@ -6111,27 +6260,56 @@
     // Load SheetJS on demand (same CDN pattern as Leaflet), then build the file.
     function runExport() {
       const cols = EXPORT_COLUMNS.filter(c => selectedExportKeys().indexOf(c.key) !== -1);
-      if (cols.length === 0) return;
+      const includeStaff = !!(document.getElementById("exportStaffToggle") && document.getElementById("exportStaffToggle").checked);
+      if (cols.length === 0 && !includeStaff) return;   // nothing selected
       const btn = document.getElementById("exportGoBtn");
       btn.disabled = true; btn.innerText = "Preparing…";
 
       ensureSheetJS(() => {
         try {
-          const ids = exportRowIds();
-          const header = cols.map(c => c.label);
-          const rows = ids.map(id => {
-            const r = restaurants[id];
-            return cols.map(c => c.get(r));
-          });
-          const aoa = [header].concat(rows);
-          const ws = XLSX.utils.aoa_to_sheet(aoa);
-          // Reasonable column widths from content length.
-          ws["!cols"] = cols.map((c, i) => {
-            const maxLen = Math.max(c.label.length, ...rows.map(row => String(row[i] || "").length));
-            return { wch: Math.min(Math.max(maxLen + 2, 10), 50) };
-          });
           const wb = XLSX.utils.book_new();
-          XLSX.utils.book_append_sheet(wb, ws, "Stores");
+
+          // Sheet 1: Stores (only if store columns were picked).
+          if (cols.length) {
+            const ids = exportRowIds();
+            const header = cols.map(c => c.label);
+            const rows = ids.map(id => {
+              const r = restaurants[id];
+              return cols.map(c => c.get(r));
+            });
+            const ws = XLSX.utils.aoa_to_sheet([header].concat(rows));
+            ws["!cols"] = cols.map((c, i) => {
+              const maxLen = Math.max(c.label.length, ...rows.map(row => String(row[i] || "").length));
+              return { wch: Math.min(Math.max(maxLen + 2, 10), 50) };
+            });
+            XLSX.utils.book_append_sheet(wb, ws, "Stores");
+          }
+
+          // Sheet 2: Support Staff, sorted the same way as the panel.
+          if (includeStaff) {
+            const sHeader = ["Name", "Job Title", "Department", "Email", "Phone", "Dept Head"];
+            const sRows = sortedStaffIds().length ? sortedStaffIds() : Object.keys(vps);
+            // sortedStaffIds respects the dept filter; for export we want everyone.
+            const allStaff = Object.keys(vps).sort((a, b) => {
+              const A = vps[a], B = vps[b];
+              const dA = (A.department || "").toLowerCase(), dB = (B.department || "").toLowerCase();
+              if (dA !== dB) return dA.localeCompare(dB);
+              const hA = A.deptHead ? 0 : 1, hB = B.deptHead ? 0 : 1;
+              if (hA !== hB) return hA - hB;
+              return (A.name || "").localeCompare(B.name || "");
+            });
+            const rows = allStaff.map(id => {
+              const p = vps[id];
+              return [p.name || "", p.jobTitle || "", p.department || "", p.email || "", formatStaffPhone(p.phone), p.deptHead ? "Yes" : ""];
+            });
+            const ws = XLSX.utils.aoa_to_sheet([sHeader].concat(rows));
+            ws["!cols"] = sHeader.map((h, i) => {
+              const maxLen = Math.max(h.length, ...rows.map(row => String(row[i] || "").length));
+              return { wch: Math.min(Math.max(maxLen + 2, 10), 50) };
+            });
+            XLSX.utils.book_append_sheet(wb, ws, "Support Staff");
+          }
+
           const stamp = new Date().toISOString().slice(0, 10);
           XLSX.writeFile(wb, `Dossani_Stores_${stamp}.xlsx`);
           closeExportModal();
