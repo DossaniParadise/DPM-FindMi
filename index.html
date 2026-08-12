@@ -1013,14 +1013,51 @@
       font-size: 0.68rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
       color: #64748b; padding: 10px 6px 4px; margin-top: 2px;
     }
-    /* Extension badge on Support Staff - colour keyed to department. */
-    .staff-ext-badge {
-      display: inline-block; font-size: 0.62rem; font-weight: 700;
-      letter-spacing: .02em; padding: 1px 6px; border-radius: 999px;
-      vertical-align: middle; margin-left: 5px; line-height: 1.4;
+    /* Global search bar in the header - filters every section at once. */
+    .global-search-wrap {
+      position: relative; display: flex; align-items: center;
+      flex: 1 1 auto; max-width: 520px; margin: 0 16px;
+    }
+    .global-search-icon {
+      position: absolute; left: 12px; font-size: 0.85rem; pointer-events: none; opacity: .8;
+    }
+    .global-search-input {
+      width: 100%; box-sizing: border-box;
+      padding: 8px 32px 8px 34px; font-size: 0.85rem;
+      border: 1px solid #cbd5e1; border-radius: 999px;
+      background: #fff; color: #0f172a;
+    }
+    .global-search-input:focus { outline: none; border-color: #251d7f; box-shadow: 0 0 0 3px rgba(37,29,127,.12); }
+    .global-search-clear {
+      position: absolute; right: 8px; display: none;
+      align-items: center; justify-content: center;
+      width: 22px; height: 22px; border: none; border-radius: 50%;
+      background: #e2e8f0; color: #475569; font-size: 1rem; cursor: pointer; line-height: 1;
     }
     @media (max-width: 768px) {
-      .staff-ext-badge { font-size: 0.7rem; padding: 2px 8px; }
+      .global-search-wrap { order: 3; flex-basis: 100%; max-width: none; margin: 6px 0 0; }
+      .global-search-input { font-size: 16px; }
+    }
+
+    /* Extension badge on Support Staff - uniform, readable, right-aligned with
+       the job title so they line up down the column. */
+    .staff-ext-badge {
+      display: inline-block; flex-shrink: 0;
+      font-size: 0.62rem; font-weight: 700; letter-spacing: .02em;
+      padding: 2px 7px; border-radius: 999px; line-height: 1.4;
+      background: #251d7f; color: #fff;
+      min-width: 34px; text-align: center;
+    }
+    .staff-right {
+      display: flex; align-items: center; gap: 8px;
+      flex-shrink: 0; margin-left: auto;
+    }
+    .staff-jobtitle {
+      font-size: 0.7rem; color: #64748b; font-weight: 500; text-align: right;
+    }
+    @media (max-width: 768px) {
+      .staff-ext-badge { font-size: 0.7rem; padding: 3px 9px; }
+      .staff-jobtitle { font-size: 0.8rem; }
     }
 
     .staff-head-badge {
@@ -1847,9 +1884,19 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v5.9 Vercel API</span>
+      <span>v6.0 Vercel API</span>
     </div>
-    
+
+    <div class="global-search-wrap">
+      <span class="global-search-icon">🔍</span>
+      <input type="search" id="globalSearchInput" class="global-search-input"
+             placeholder="Search everything — stores, staff, managers, entities…"
+             oninput="handleGlobalSearch(this.value)" autocomplete="off"
+             autocorrect="off" autocapitalize="off" spellcheck="false"
+             data-1p-ignore data-lpignore="true" data-form-type="other" aria-label="Search all records">
+      <button type="button" id="globalSearchClear" class="global-search-clear" onclick="clearGlobalSearch()" aria-label="Clear search">&times;</button>
+    </div>
+
     <div class="header-actions">
       <!-- Database Connection Status Badge -->
       <div id="connectionStatus" class="status-badge">
@@ -3358,6 +3405,9 @@
         const p = vps[sid];
         const dept = (p.department || "").trim();
 
+        // Global search: match across name/title/department/email/phone.
+        if (!globalMatch(p.name, p.jobTitle, p.department, p.email, p.phone)) return;
+
         const isExpanded = expandedVpId === sid;
         const card = document.createElement("div");
         card.className = "card";
@@ -3370,7 +3420,7 @@
         if (isExpanded) {
           card.innerHTML = `
             <div class="card-header-row">
-              <div class="card-title">${escapeHtml(p.name)}${staffExtBadge(p)}${headBadge}</div>
+              <div class="card-title">${escapeHtml(p.name)}${headBadge}</div>
               <div class="card-actions">
                 <button class="btn btn-icon btn-icon-edit" onclick="event.stopPropagation(); openEditModal('vp', '${sid}')">✎</button>
                 <button class="btn btn-icon btn-icon-delete" onclick="event.stopPropagation(); deleteEntry('vp', '${sid}')">✕</button>
@@ -3393,8 +3443,11 @@
         } else {
           card.innerHTML = `
             <div class="card-header-row" style="margin-bottom: 0; align-items: center;">
-              <div class="card-title">${escapeHtml(p.name)}${staffExtBadge(p)}${headBadge}</div>
-              <span style="font-size: 0.7rem; color: #64748b; font-weight: 500; text-align: right;">${escapeHtml(p.jobTitle || "")}</span>
+              <div class="card-title">${escapeHtml(p.name)}${headBadge}</div>
+              <div class="staff-right">
+                <span class="staff-jobtitle">${escapeHtml(p.jobTitle || "")}</span>
+                ${staffExtBadge(p)}
+              </div>
             </div>
           `;
         }
@@ -3431,11 +3484,40 @@
       return DEPT_COLORS[key] || { bg: "#e2e8f0", fg: "#334155" }; // slate fallback
     }
     // Build the extension badge markup for a staff person (empty if no ext).
+    // Uniform colour for easy reading; sits with the job title on the right.
     function staffExtBadge(p) {
       const ext = staffExtension(p.phone);
       if (!ext) return "";
-      const c = deptColor(p.department);
-      return ` <span class="staff-ext-badge" style="background:${c.bg}; color:${c.fg};">x${ext}</span>`;
+      return `<span class="staff-ext-badge">x${ext}</span>`;
+    }
+
+    // ---- Global search ----
+    // One query filters every section at once. Each render function calls
+    // globalMatch(...) with that item's searchable text; empty query = show all.
+    let globalSearchQuery = "";
+
+    function handleGlobalSearch(v) {
+      globalSearchQuery = (v || "").trim().toLowerCase();
+      const clr = document.getElementById("globalSearchClear");
+      if (clr) clr.style.display = globalSearchQuery ? "flex" : "none";
+      renderAll();
+    }
+
+    function clearGlobalSearch() {
+      const input = document.getElementById("globalSearchInput");
+      if (input) input.value = "";
+      globalSearchQuery = "";
+      const clr = document.getElementById("globalSearchClear");
+      if (clr) clr.style.display = "none";
+      renderAll();
+    }
+
+    // Returns true if the item should show given the current global query.
+    // Pass any number of field values; they're joined and matched.
+    function globalMatch(...fields) {
+      if (!globalSearchQuery) return true;
+      const hay = fields.filter(Boolean).join(" ").toLowerCase();
+      return hay.indexOf(globalSearchQuery) !== -1;
     }
 
     // Office main line. A Support Staff phone entered as just an extension
@@ -3481,6 +3563,7 @@
 
       keys.forEach((dirId) => {
         const dir = directors[dirId];
+        if (!globalMatch(dir.name, dir.email, dir.phone)) return;
         const isSelected = selectedDirectorId === dirId;
         const isExpanded = expandedDirectorId === dirId;
         
@@ -3547,6 +3630,7 @@
 
       keys.forEach((techId) => {
         const tech = repairTechnicians[techId];
+        if (!globalMatch(tech.name, tech.email, tech.phone)) return;
         const isSelected = selectedTechnicianId === techId;
         const isExpanded = expandedTechnicianId === techId;
         
@@ -3687,6 +3771,7 @@
 
       keys.forEach((entId) => {
         const ent = entities[entId];
+        if (!globalMatch(ent.name)) return;
         const isSelected = selectedEntityId === entId;
         const isExpanded = expandedEntityId === entId;
         const flag = normFlag[__normEntityName(ent.name)];
@@ -3776,6 +3861,7 @@
 
       keys.forEach((coachId) => {
         const coach = areaCoaches[coachId];
+        if (!globalMatch(coach.name, coach.email, coach.phone)) return;
         const isSelected = selectedCoachId === coachId;
         const isExpanded = expandedCoachId === coachId;
         const dirName = coach.assignedDirectorId && directors[coach.assignedDirectorId] ? directors[coach.assignedDirectorId].name : null;
@@ -3947,6 +4033,18 @@
 
     // Helper to filter and sort restaurant keys
     function filterAndSortRestaurantKeys(keys) {
+      // 0. Global search (header bar) - matches across the store's key fields.
+      if (globalSearchQuery) {
+        keys = keys.filter(id => {
+          const r = restaurants[id];
+          if (!r) return false;
+          return globalMatch(r.storeName, r.storeNumber, r.address, r.phone, r.email,
+            r.storeManager, r.assistantManager,
+            getCoachNames(r).join(" "), getTechNames(r).join(" "),
+            (r.assignedDirectorId && directors[r.assignedDirectorId]) ? directors[r.assignedDirectorId].name : "",
+            (r.assignedEntityId && entities[r.assignedEntityId]) ? entities[r.assignedEntityId].name : (r.entity || ""));
+        });
+      }
       // 1. Search Query Filter
       const query = (restaurantSearchQuery || "").toLowerCase().trim();
       if (query) {
