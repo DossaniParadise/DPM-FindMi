@@ -1024,6 +1024,23 @@
       .staff-dept-header { font-size: 0.72rem; padding: 14px 4px 6px; }
     }
 
+    /* ---- Smart panel heights (desktop) ----
+       Left & middle columns stack multiple panels (Support Staff / Directors /
+       Techs, and DMs / Entities). Instead of each taking an equal 1fr share -
+       which left big voids under short lists - each panel sizes to its content
+       (flex: 0 1 auto) up to a max-height cap. A long list scrolls inside its
+       own panel; a short one shrinks to fit. */
+    .panel-flex {
+      flex: 0 1 auto;
+    }
+    /* Subtle separator between stacked panels instead of a hard 2px line. */
+    .panel-flex + .panel-flex {
+      border-top: 1px solid var(--neutral-border);
+      margin-top: 6px; padding-top: 2px;
+    }
+    /* The scrolling list inside each panel fills the remaining panel height. */
+    .panel-flex .cards-list { flex: 1 1 auto; min-height: 0; }
+
     /* Store filter dropdowns (DM / Entity / Division). */
     .store-filter-row { display: flex; gap: 6px; }
     .store-filter-sel {
@@ -1820,7 +1837,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v5.7 Vercel API</span>
+      <span>v5.8 Vercel API</span>
     </div>
     
     <div class="header-actions">
@@ -1862,7 +1879,7 @@
     <!-- LEFT COLUMN - DIRECTORS & TECHNICIANS -->
     <section class="column" data-col="a" style="display: flex; flex-direction: column;">
       <!-- Support Staff (Top) -->
-      <div class="m-panel" data-panel="vp" style="flex: 1; display: flex; flex-direction: column; overflow: hidden; border-bottom: 2px solid var(--neutral-border);">
+      <div class="m-panel panel-flex" data-panel="vp" style="display: flex; flex-direction: column; overflow: hidden; min-height: 120px; max-height: 52%;">
         <div class="column-header m-panel-head">
           <div class="column-title">
             Support Staff
@@ -1883,7 +1900,7 @@
       </div>
 
       <!-- Directors of Operations (Middle) -->
-      <div class="m-panel" data-panel="director" style="flex: 1; display: flex; flex-direction: column; overflow: hidden; border-bottom: 2px solid var(--neutral-border);">
+      <div class="m-panel panel-flex" data-panel="director" style="display: flex; flex-direction: column; overflow: hidden; min-height: 100px; max-height: 40%;">
         <div class="column-header m-panel-head">
           <div class="column-title">
             Directors of Operations
@@ -1898,7 +1915,7 @@
       </div>
 
       <!-- Repair Technicians (Bottom Half) -->
-      <div class="m-panel" data-panel="technician" style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+      <div class="m-panel panel-flex" data-panel="technician" style="display: flex; flex-direction: column; overflow: hidden; min-height: 100px; max-height: 40%;">
         <div class="column-header m-panel-head">
           <div class="column-title">
             Repair Technicians
@@ -1922,7 +1939,7 @@
     <!-- MIDDLE COLUMN - DISTRICT MANAGERS & ENTITIES -->
     <section class="column" data-col="b" style="display: flex; flex-direction: column;">
       <!-- District Managers (Top Half) -->
-      <div class="m-panel" data-panel="coach" style="flex: 1; display: flex; flex-direction: column; overflow: hidden; border-bottom: 2px solid var(--neutral-border);">
+      <div class="m-panel panel-flex" data-panel="coach" style="display: flex; flex-direction: column; overflow: hidden; min-height: 120px; max-height: 58%;">
         <div class="column-header m-panel-head">
           <div class="column-title">
             District Managers
@@ -1953,7 +1970,7 @@
       </div>
 
       <!-- Entities (Bottom Half) -->
-      <div class="m-panel" data-panel="entity" style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+      <div class="m-panel panel-flex" data-panel="entity" style="display: flex; flex-direction: column; overflow: hidden; min-height: 100px; max-height: 42%;">
         <div class="column-header m-panel-head">
           <div class="column-title">
             Entities
