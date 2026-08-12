@@ -1013,6 +1013,16 @@
       font-size: 0.68rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
       color: #64748b; padding: 10px 6px 4px; margin-top: 2px;
     }
+    /* Extension badge on Support Staff - colour keyed to department. */
+    .staff-ext-badge {
+      display: inline-block; font-size: 0.62rem; font-weight: 700;
+      letter-spacing: .02em; padding: 1px 6px; border-radius: 999px;
+      vertical-align: middle; margin-left: 5px; line-height: 1.4;
+    }
+    @media (max-width: 768px) {
+      .staff-ext-badge { font-size: 0.7rem; padding: 2px 8px; }
+    }
+
     .staff-head-badge {
       display: none;   /* editor-only: revealed when editing is unlocked. It only affects sort order otherwise. */
       font-size: 0.6rem; font-weight: 700; letter-spacing: .02em;
@@ -1837,7 +1847,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v5.8 Vercel API</span>
+      <span>v5.9 Vercel API</span>
     </div>
     
     <div class="header-actions">
@@ -3360,7 +3370,7 @@
         if (isExpanded) {
           card.innerHTML = `
             <div class="card-header-row">
-              <div class="card-title">${escapeHtml(p.name)}${headBadge}</div>
+              <div class="card-title">${escapeHtml(p.name)}${staffExtBadge(p)}${headBadge}</div>
               <div class="card-actions">
                 <button class="btn btn-icon btn-icon-edit" onclick="event.stopPropagation(); openEditModal('vp', '${sid}')">✎</button>
                 <button class="btn btn-icon btn-icon-delete" onclick="event.stopPropagation(); deleteEntry('vp', '${sid}')">✕</button>
@@ -3383,13 +3393,49 @@
         } else {
           card.innerHTML = `
             <div class="card-header-row" style="margin-bottom: 0; align-items: center;">
-              <div class="card-title">${escapeHtml(p.name)}${headBadge}</div>
+              <div class="card-title">${escapeHtml(p.name)}${staffExtBadge(p)}${headBadge}</div>
               <span style="font-size: 0.7rem; color: #64748b; font-weight: 500; text-align: right;">${escapeHtml(p.jobTitle || "")}</span>
             </div>
           `;
         }
         listDiv.appendChild(card);
       });
+    }
+
+    // Pull the dialable extension from a staff phone: the digits after a comma,
+    // or a bare short number (which formatStaffPhone treats as an office ext).
+    function staffExtension(raw) {
+      if (!raw) return "";
+      const s = String(raw).trim();
+      const c = s.search(/[,;]/);
+      if (c !== -1) return s.slice(c + 1).replace(/[^0-9]/g, "");
+      const digits = s.replace(/[^0-9]/g, "");
+      return (digits.length > 0 && digits.length <= 5) ? digits : "";
+    }
+
+    // Department -> badge color. Keys are lowercased department names.
+    const DEPT_COLORS = {
+      "human resources": { bg: "#fce7f3", fg: "#9d174d" }, // pink
+      "finance":         { bg: "#dcfce7", fg: "#166534" }, // light green
+      "accounting":      { bg: "#166534", fg: "#ffffff" }, // dark green
+      "operations":      { bg: "#fee2e2", fg: "#991b1b" }, // red
+      "information technology": { bg: "#dbeafe", fg: "#1e40af" }, // blue
+      "it":              { bg: "#dbeafe", fg: "#1e40af" }, // blue (alias)
+      "executive":       { bg: "#ede9fe", fg: "#5b21b6" }, // purple
+      "administrative":  { bg: "#fef3c7", fg: "#92400e" }, // amber
+      "marketing":       { bg: "#ffedd5", fg: "#9a3412" }, // orange
+      "development":     { bg: "#cffafe", fg: "#155e75" }  // teal
+    };
+    function deptColor(dept) {
+      const key = (dept || "").trim().toLowerCase();
+      return DEPT_COLORS[key] || { bg: "#e2e8f0", fg: "#334155" }; // slate fallback
+    }
+    // Build the extension badge markup for a staff person (empty if no ext).
+    function staffExtBadge(p) {
+      const ext = staffExtension(p.phone);
+      if (!ext) return "";
+      const c = deptColor(p.department);
+      return ` <span class="staff-ext-badge" style="background:${c.bg}; color:${c.fg};">x${ext}</span>`;
     }
 
     // Office main line. A Support Staff phone entered as just an extension
