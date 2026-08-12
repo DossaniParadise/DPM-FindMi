@@ -972,7 +972,15 @@
          desktop. Hide all three so the expanded card reads clean. */
       .js-gps-row { display: none !important; }
       .js-card-edit { display: none !important; }
-      .card .copy-btn-mini { display: none !important; }
+      /* Hide the per-field Copy buttons on mobile EXCEPT the store's
+         address / phone / email (tagged copy-keep) - those stay useful in the
+         field for grabbing a value to paste elsewhere. */
+      .card .copy-btn-mini:not(.copy-keep) { display: none !important; }
+      /* Make the kept ones a comfortable tap target. */
+      .card .copy-keep {
+        font-size: 0.78rem; padding: 6px 10px; border-radius: 8px;
+        min-height: 34px; color: #251d7f; border-color: #d6dbf5; background: #eef0fb;
+      }
     }
 
     @media (max-width: 768px) {
@@ -1812,7 +1820,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v5.4 Vercel API</span>
+      <span>v5.7 Vercel API</span>
     </div>
     
     <div class="header-actions">
@@ -1977,7 +1985,7 @@
           <button class="btn btn-primary btn-xs edit-only" onclick="openCreateModal('restaurant')">+ Add Store</button>
           <button class="btn btn-success btn-xs edit-only" onclick="openBatchImportModal()" style="margin-left: 6px;">Batch Import</button>
           <button class="btn btn-xs" onclick="openExportModal()" style="margin-left: 6px; background:#0f766e; color:#fff;">⬇ Export</button>
-          <button class="btn btn-xs edit-only" onclick="cleanUpPhoneNumbers()" style="margin-left: 6px; background:#7c3aed; color:#fff;" title="Reformat all raw phone numbers to XXX-XXX-XXXX">🧹 Clean Phones</button>
+          <button class="btn btn-xs edit-only" onclick="cleanUpData()" style="margin-left: 6px; background:#7c3aed; color:#fff;" title="Reformat phone numbers and normalize email capitalization">🧹 Clean Data</button>
         </div>
       </div>
 
@@ -3180,10 +3188,10 @@
     // strings (e.g. 1234567890) into 123-456-7890. Runs only when editing is
     // unlocked. Support-staff phones use the extension-aware formatter so an
     // extension after a comma - or a bare office extension - is preserved.
-    function cleanUpPhoneNumbers() {
+    function cleanUpData() {
       performLockedAction(() => {
         const updates = {};
-        let changed = 0;
+        let phoneChanged = 0, emailChanged = 0;
 
         const fixPlain = (val) => {
           if (!val) return null;
@@ -3191,38 +3199,59 @@
           return (formatted && formatted !== val) ? formatted : null;
         };
 
-        // Stores: phone, managerCell, assistantManagerCell.
+        // Email normalization: first character upper, everything else lower.
+        // e.g. "BKAthens25385@DOSSANIPARADISE.COM" -> "Bkathens25385@dossaniparadise.com"
+        const fixEmail = (val) => {
+          if (!val) return null;
+          const s = String(val).trim();
+          if (!s) return null;
+          const norm = s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+          return norm !== s ? norm : null;
+        };
+
+        // Stores: phone/cell fields + email.
         Object.keys(restaurants).forEach(id => {
           const r = restaurants[id];
           [["phone", r.phone], ["managerCell", r.managerCell], ["assistantManagerCell", r.assistantManagerCell]].forEach(([field, val]) => {
             const f = fixPlain(val);
-            if (f) { updates[`restaurants/${id}/${field}`] = f; changed++; }
+            if (f) { updates[`restaurants/${id}/${field}`] = f; phoneChanged++; }
           });
+          const e = fixEmail(r.email);
+          if (e) { updates[`restaurants/${id}/email`] = e; emailChanged++; }
         });
 
-        // People: directors, area coaches, repair techs (plain phone field).
-        [["directors", directors], ["areaCoaches", areaCoaches], ["repairTechnicians", repairTechnicians]].forEach(([path, coll]) => {
+        // Directors, area coaches, repair techs, entities: phone + email.
+        [["directors", directors], ["areaCoaches", areaCoaches], ["repairTechnicians", repairTechnicians], ["entities", entities]].forEach(([path, coll]) => {
           Object.keys(coll).forEach(id => {
             const f = fixPlain(coll[id].phone);
-            if (f) { updates[`${path}/${id}/phone`] = f; changed++; }
+            if (f) { updates[`${path}/${id}/phone`] = f; phoneChanged++; }
+            const e = fixEmail(coll[id].email);
+            if (e) { updates[`${path}/${id}/email`] = e; emailChanged++; }
           });
         });
 
-        // Support staff: extension-aware (keeps ",ext" and office-line shortcuts).
+        // Support staff: extension-aware phone + email.
         Object.keys(vps).forEach(id => {
           const raw = vps[id].phone;
-          if (!raw) return;
-          const formatted = formatStaffPhone(raw);
-          if (formatted && formatted !== raw) { updates[`vps/${id}/phone`] = formatted; changed++; }
+          if (raw) {
+            const formatted = formatStaffPhone(raw);
+            if (formatted && formatted !== raw) { updates[`vps/${id}/phone`] = formatted; phoneChanged++; }
+          }
+          const e = fixEmail(vps[id].email);
+          if (e) { updates[`vps/${id}/email`] = e; emailChanged++; }
         });
 
-        if (changed === 0) {
-          alert("All phone numbers are already formatted. Nothing to clean up.");
+        const total = phoneChanged + emailChanged;
+        if (total === 0) {
+          alert("Everything is already clean. No phone or email changes needed.");
           return;
         }
-        if (confirm(`Reformat ${changed} phone number${changed === 1 ? "" : "s"} to XXX-XXX-XXXX? This updates the records.`)) {
+        const parts = [];
+        if (phoneChanged) parts.push(`${phoneChanged} phone number${phoneChanged === 1 ? "" : "s"}`);
+        if (emailChanged) parts.push(`${emailChanged} email${emailChanged === 1 ? "" : "s"}`);
+        if (confirm(`Clean up ${parts.join(" and ")}? Phones become XXX-XXX-XXXX and emails get standard capitalization. This updates the records.`)) {
           db.ref().update(updates);
-          alert(`Cleaned up ${changed} phone number${changed === 1 ? "" : "s"}.`);
+          alert(`Cleaned up ${parts.join(" and ")}.`);
         }
       });
     }
@@ -3260,8 +3289,15 @@
           return (A.name || "").localeCompare(B.name || "");
         });
       }
-      // No filter: one flat alphabetical list by name (no department grouping).
-      return ids.sort((a, b) => (vps[a].name || "").localeCompare(vps[b].name || ""));
+      // No filter: Executive department first (leadership at the top), then
+      // everyone else. Within each group, alphabetical by name.
+      const isExec = (id) => (vps[id].department || "").trim().toLowerCase() === "executive";
+      return ids.sort((a, b) => {
+        const execA = isExec(a) ? 0 : 1;
+        const execB = isExec(b) ? 0 : 1;
+        if (execA !== execB) return execA - execB;
+        return (vps[a].name || "").localeCompare(vps[b].name || "");
+      });
     }
 
     function renderVps() {
@@ -4049,15 +4085,15 @@
                 </div>` : ''}
               <div class="card-detail" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                 <span style="overflow: hidden; text-overflow: ellipsis;">📍 Address: ${escapeHtml(rest.address || 'No address')}</span>
-                ${rest.address ? `<button class="copy-btn-mini" onclick="copyTextToClipboard(this.getAttribute('data-text'), this)" data-text="${escapeHtml(rest.address)}">📋 Copy</button>` : ''}
+                ${rest.address ? `<button class="copy-btn-mini copy-keep" onclick="copyTextToClipboard(this.getAttribute('data-text'), this)" data-text="${escapeHtml(rest.address)}">📋 Copy</button>` : ''}
               </div>
               <div class="card-detail" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                 <span>☎ Phone: ${escapeHtml(formatPhoneNumber(rest.phone) || 'No phone')}</span>
-                ${rest.phone ? `<button class="copy-btn-mini" onclick="copyTextToClipboard(this.getAttribute('data-text'), this)" data-text="${escapeHtml(formatPhoneNumber(rest.phone))}">📋 Copy</button>` : ''}
+                ${rest.phone ? `<button class="copy-btn-mini copy-keep" onclick="copyTextToClipboard(this.getAttribute('data-text'), this)" data-text="${escapeHtml(formatPhoneNumber(rest.phone))}">📋 Copy</button>` : ''}
               </div>
               <div class="card-detail" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                 <span style="overflow: hidden; text-overflow: ellipsis;">✉ Email: ${escapeHtml(rest.email || 'No email')}</span>
-                ${rest.email ? `<button class="copy-btn-mini" onclick="copyTextToClipboard(this.getAttribute('data-text'), this)" data-text="${escapeHtml(rest.email)}">📋 Copy</button>` : ''}
+                ${rest.email ? `<button class="copy-btn-mini copy-keep" onclick="copyTextToClipboard(this.getAttribute('data-text'), this)" data-text="${escapeHtml(rest.email)}">📋 Copy</button>` : ''}
               </div>
               ${(rest.latitude || rest.longitude) ? `
                 <div class="card-detail js-gps-row" style="color: #0369a1; font-weight: 550; display: flex; align-items: center; justify-content: space-between; margin-top: 2px; width: 100%;">
