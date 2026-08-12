@@ -1897,7 +1897,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v6.1 Vercel API</span>
+      <span>v6.2 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -2076,14 +2076,9 @@
         </div>
       </div>
 
-      <!-- Restaurant search and sorting panel -->
+      <!-- Restaurant sorting + filter panel (store search now lives in the
+           global header search bar) -->
       <div class="column-action-bar" style="flex-direction: column; align-items: stretch; gap: 8px;">
-        <!-- Search bar -->
-        <div style="position: relative; display: flex; align-items: center; width: 100%;">
-          <span style="position: absolute; left: 8px; color: #94a3b8; font-size: 0.8rem; pointer-events: none;">🔍</span>
-          <input type="search" id="restaurantSearchInput" name="store-search-field" oninput="handleRestaurantSearch(this.value)" placeholder="Search Name, Mgr, Address, Zip..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-1p-ignore data-lpignore="true" data-form-type="other" role="searchbox" aria-label="Search stores" style="width: 100%; padding: 5px 24px 5px 24px; font-size: 0.75rem; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; background-color: var(--bg-white); color: #0f172a;" />
-          <button id="clearSearchBtn" onclick="clearRestaurantSearch()" style="position: absolute; right: 8px; background: none; border: none; color: #94a3b8; font-size: 0.8rem; cursor: pointer; display: none; padding: 0;">✕</button>
-        </div>
         <!-- Sort block -->
         <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
           <span style="font-size: 0.72rem; color: #64748b; font-weight: 500;">Sort:</span>
