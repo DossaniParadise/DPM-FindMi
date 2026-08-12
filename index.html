@@ -1812,7 +1812,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v5.3 Vercel API</span>
+      <span>v5.4 Vercel API</span>
     </div>
     
     <div class="header-actions">
@@ -3251,19 +3251,17 @@
       let ids = Object.keys(vps);
       if (staffDeptFilter) {
         ids = ids.filter(id => (vps[id].department || "").trim() === staffDeptFilter);
+        // Within a single department: head(s) first, then alphabetical.
+        return ids.sort((a, b) => {
+          const A = vps[a], B = vps[b];
+          const headA = A.deptHead ? 0 : 1;
+          const headB = B.deptHead ? 0 : 1;
+          if (headA !== headB) return headA - headB;
+          return (A.name || "").localeCompare(B.name || "");
+        });
       }
-      return ids.sort((a, b) => {
-        const A = vps[a], B = vps[b];
-        const depA = (A.department || "").toLowerCase();
-        const depB = (B.department || "").toLowerCase();
-        if (depA !== depB) return depA.localeCompare(depB);   // group by department
-        // Within a department: heads first...
-        const headA = A.deptHead ? 0 : 1;
-        const headB = B.deptHead ? 0 : 1;
-        if (headA !== headB) return headA - headB;
-        // ...then alphabetical by name.
-        return (A.name || "").localeCompare(B.name || "");
-      });
+      // No filter: one flat alphabetical list by name (no department grouping).
+      return ids.sort((a, b) => (vps[a].name || "").localeCompare(vps[b].name || ""));
     }
 
     function renderVps() {
@@ -3293,19 +3291,9 @@
         return;
       }
 
-      let lastDept = null;
       ids.forEach((sid) => {
         const p = vps[sid];
         const dept = (p.department || "").trim();
-
-        // Department header row (only when NOT already filtered to one dept).
-        if (!staffDeptFilter && dept !== lastDept) {
-          lastDept = dept;
-          const hdr = document.createElement("div");
-          hdr.className = "staff-dept-header";
-          hdr.textContent = dept || "No Department";
-          listDiv.appendChild(hdr);
-        }
 
         const isExpanded = expandedVpId === sid;
         const card = document.createElement("div");
