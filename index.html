@@ -1897,7 +1897,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v6.2 Vercel API</span>
+      <span>v6.3 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -2791,7 +2791,7 @@
         const ids = getCoachIds(restaurants[id]);
         if (ids.indexOf(coachId) === -1) {
           trackChangeTimestamp(id);
-          Object.assign(updates, prefixUpdate(id, coachAssignmentPayload(ids.concat([coachId])).payload));
+          Object.assign(updates, prefixUpdate(id, coachAssignmentPayload(ids.concat([coachId]), restaurants[id]).payload));
         }
       });
       if (Object.keys(updates).length) db.ref().update(updates);
@@ -4279,9 +4279,11 @@
                 ${dirName ? `<span class="relation-badge badge-director">Dir: ${escapeHtml(dirName)}</span>` : ''}
                 ${getCoachIds(rest).length > 0
                   ? getCoachIds(rest).map(cid =>
-                      `<span class="relation-badge badge-coach">Coach: ${escapeHtml(areaCoaches[cid].name)}<button onclick="event.stopPropagation(); removeCoachFromStore('${restId}', '${cid}')" title="Remove this coach" style="pointer-events:auto; background:none; border:none; color:inherit; cursor:pointer; font-weight:700; margin-left:4px; padding:0 1px; opacity:0.7;">✕</button></span>`
+                      `<span class="relation-badge badge-coach">DM: ${escapeHtml(areaCoaches[cid].name)}<button onclick="event.stopPropagation(); removeCoachFromStore('${restId}', '${cid}')" title="Remove this district manager" style="pointer-events:auto; background:none; border:none; color:inherit; cursor:pointer; font-weight:700; margin-left:4px; padding:0 1px; opacity:0.7;">✕</button></span>`
                     ).join('')
-                  : '<span class="relation-badge badge-unassigned">Direct Report</span>'}
+                  : (dirName
+                      ? `<span class="relation-badge badge-unassigned">Direct report to ${escapeHtml(dirName)}</span>`
+                      : '<span class="relation-badge badge-unassigned">Unassigned</span>')}
                 ${rest.assignedEntityId && entities[rest.assignedEntityId] 
                   ? `<span class="relation-badge badge-entity">Ent: ${escapeHtml(entities[rest.assignedEntityId].name)}</span>` 
                   : (rest.entity ? `<span class="relation-badge badge-entity">Ent: ${escapeHtml(rest.entity)}</span>` : '')
@@ -4440,7 +4442,7 @@
         if (current.indexOf(targetCoachId) !== -1) return; // already assigned
         const next = current.concat([targetCoachId]);
         if (!warnIfDirectorConflict(next)) return;
-        const built = coachAssignmentPayload(next);
+        const built = coachAssignmentPayload(next, rest);
         performLockedAction(() => {
           trackChangeTimestamp(elemId);
           db.ref(`restaurants/${elemId}`).update(built.payload);
@@ -5232,7 +5234,7 @@
                 if (ids.indexOf(id) !== -1) {
                   const next = ids.filter(c => c !== id);
                   db.ref(`restaurants/${restId}`).update(
-                    coachAssignmentPayload(next).payload
+                    coachAssignmentPayload(next, restaurants[restId]).payload
                   );
                 }
               });
@@ -6254,14 +6256,23 @@
     }
 
     // Build the write payload for a coach-id list, keeping legacy fields in sync.
-    function coachAssignmentPayload(coachIds) {
+    // IMPORTANT for hierarchy integrity: the director is normally derived from
+    // the coaches, but if the coach list becomes EMPTY we must NOT wipe the
+    // director - the store simply becomes a direct report to its existing
+    // director. Pass the current store so we can preserve that director.
+    function coachAssignmentPayload(coachIds, currentStore) {
       const clean = coachIds.filter((id, i) => id && coachIds.indexOf(id) === i);
       const res = resolveDirectorForCoaches(clean);
+      let directorId = res.directorId;
+      if (clean.length === 0) {
+        // No coaches: keep whatever director the store already had.
+        directorId = (currentStore && currentStore.assignedDirectorId) || "";
+      }
       return {
         payload: {
           assignedAreaCoachIds: clean,
           assignedAreaCoachId: clean[0] || "",   // legacy mirror
-          assignedDirectorId: res.directorId
+          assignedDirectorId: directorId
         },
         conflict: res.conflict,
         directorIds: res.directorIds
@@ -6296,7 +6307,7 @@
       const rest = restaurants[restId];
       if (!rest) return;
       const next = getCoachIds(rest).filter(id => id !== coachId);
-      const built = coachAssignmentPayload(next);
+      const built = coachAssignmentPayload(next, rest);
       performLockedAction(() => {
         trackChangeTimestamp(restId);
         db.ref(`restaurants/${restId}`).update(built.payload);
