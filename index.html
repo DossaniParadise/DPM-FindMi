@@ -1908,7 +1908,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v6.4 Vercel API</span>
+      <span>v6.6 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -2551,6 +2551,57 @@
   <script>
     const API_BASE_URL = "https://alignment-api-khaki.vercel.app/api/dpm-alignment";
 
+    /* ---- stale-client protection (mirrors DPM FixMi) ----
+       Browsers cache the HTML, so different devices can run different builds and
+       see different data. Fix: the newest client publishes its version to the
+       shared admins/appMeta node; every client compares on each load, and a
+       stale client force-reloads itself with a cache-busting ?v= URL. This is
+       the same approach FixMi uses so the two apps stay consistent. */
+    const APP_VERSION = "6.6";
+    let _versionPublished = false;
+
+    function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
+      const pa = String(a || "0").split(".").map(Number);
+      const pb = String(b || "0").split(".").map(Number);
+      for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+        const x = pa[i] || 0, y = pb[i] || 0;
+        if (x !== y) return x > y ? 1 : -1;
+      }
+      return 0;
+    }
+
+    function checkAppVersion(admins) {
+      const server = ((admins || {}).appMeta || {}).version;
+      if (!server || cmpVer(APP_VERSION, server) > 0) {
+        // This is the newest build seen so far - publish it once per session.
+        // Direct POST (not the db shim) so we don't trigger a render/reconcile.
+        if (!_versionPublished) {
+          _versionPublished = true;
+          fetch(API_BASE_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              password: EDIT_PASSWORD,
+              updates: { "admins/appMeta": { version: APP_VERSION, updatedAt: Date.now() } }
+            })
+          }).catch(() => { _versionPublished = false; });
+        }
+      } else if (cmpVer(server, APP_VERSION) > 0) {
+        // A newer build exists - reload to get it. Guard against reload loops:
+        // only reload once per server version per tab.
+        let done = null;
+        try { done = sessionStorage.getItem("dpm_reloadedFor"); } catch (e) {}
+        if (done !== server) {
+          try { sessionStorage.setItem("dpm_reloadedFor", server); } catch (e) {}
+          const statusText = document.getElementById("statusText");
+          if (statusText) statusText.innerText = "Updating to v" + server + "…";
+          setTimeout(() => {
+            location.replace(location.pathname + "?v=" + encodeURIComponent(server));
+          }, 800);
+        }
+      }
+    }
+
     async function loadDashboardData(opts) {
       const silent = !!(opts && opts.silent);
       let data;
@@ -2589,6 +2640,9 @@
         vps = data.vps || {};
         restaurants = data.restaurants || {};
         adminsNode = data.admins || {};   // shared config: ticketCategories + techMeta
+
+        // Stale-client check: publish our version or reload if a newer exists.
+        checkAppVersion(data.admins);
 
         loadedPaths = { directors: true, areaCoaches: true, restaurants: true, repairTechnicians: true, entities: true };
 
@@ -4236,7 +4290,6 @@
                 <span style="color: #94a3b8; font-family: monospace; font-size: 0.75rem; user-select: none; flex-shrink: 0;">⋮⋮</span>
                 <span class="store-badge" style="background-color: #2563eb; color: #ffffff; font-size: 0.7rem; padding: 2px 5px; border-radius: 4px; font-weight: bold; font-family: monospace; flex-shrink: 0;">${escapeHtml(rest.storeNumber || '#')}</span>
                 <span class="font-bold" style="font-size: 0.88rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 1;">${escapeHtml(rest.storeName)}</span>
-                <button class="copy-btn-mini copy-keep" onmousedown="event.stopPropagation();" onclick="event.stopPropagation(); copyTextToClipboard(this.getAttribute('data-text'), this)" data-text="${escapeHtml(rest.storeName || '')}" title="Copy store name" style="flex-shrink: 0;">📋</button>
               </div>
               <div style="flex-shrink: 0; display: flex; gap: 4px; margin-left: 6px; align-items: center;">
                 <button class="btn btn-icon copy-all-btn" onmousedown="event.stopPropagation();" onclick="event.stopPropagation(); copyStoreAll('${restId}', this)" title="Copy all store info">📋 All</button>
@@ -4253,19 +4306,16 @@
                 <a class="m-act m-act-nav ${mNav ? '' : 'm-act-off'}" ${mNav ? 'href="' + mNav + '" target="_blank" rel="noopener"' : ''} onclick="event.stopPropagation();" draggable="false" aria-label="Navigate to store"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg><span>Go</span></a>
               </div>
               ${rest.entity ? `
-                <div class="card-detail" style="font-weight: 550; color: #1e3a8a; display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <div class="card-detail" style="font-weight: 550; color: #1e3a8a; display: flex; align-items: center; width: 100%;">
                   <span>🏢 Entity: ${escapeHtml(rest.entity)}</span>
-                  <button class="copy-btn-mini" onclick="copyTextToClipboard(this.getAttribute('data-text'), this)" data-text="${escapeHtml(rest.entity)}">📋 Copy</button>
                 </div>` : ''}
               ${rest.storeManager ? `
-                <div class="card-detail" style="font-weight: 600; color: #334155; display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <div class="card-detail" style="font-weight: 600; color: #334155; display: flex; align-items: center; width: 100%;">
                   <span>👤 Mgr: ${escapeHtml(rest.storeManager)}</span>
-                  <button class="copy-btn-mini" onclick="copyTextToClipboard(this.getAttribute('data-text'), this)" data-text="${escapeHtml(rest.storeManager)}">📋 Copy</button>
                 </div>` : ''}
               ${rest.assistantManager ? `
-                <div class="card-detail" style="font-weight: 600; color: #334155; display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <div class="card-detail" style="font-weight: 600; color: #334155; display: flex; align-items: center; width: 100%;">
                   <span>👤 AGM: ${escapeHtml(rest.assistantManager)}</span>
-                  <button class="copy-btn-mini" onclick="copyTextToClipboard(this.getAttribute('data-text'), this)" data-text="${escapeHtml(rest.assistantManager)}">📋 Copy</button>
                 </div>` : ''}
               <div class="card-detail" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                 <span style="overflow: hidden; text-overflow: ellipsis;">📍 Address: ${escapeHtml(rest.address || 'No address')}</span>
@@ -4283,7 +4333,6 @@
                 <div class="card-detail js-gps-row" style="color: #0369a1; font-weight: 550; display: flex; align-items: center; justify-content: space-between; margin-top: 2px; width: 100%;">
                   <span style="overflow: hidden; text-overflow: ellipsis;">🌐 GPS: ${escapeHtml(rest.latitude || 'N/A')}, ${escapeHtml(rest.longitude || 'N/A')}</span>
                   <div style="display: inline-flex; gap: 4px; flex-shrink: 0; align-items: center;">
-                    <button class="copy-btn-mini" onclick="copyTextToClipboard(this.getAttribute('data-text'), this)" data-text="${escapeHtml(rest.latitude)}, ${escapeHtml(rest.longitude)}">📋 Copy</button>
                     <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([rest.latitude, rest.longitude].filter(Boolean).join(','))}" target="_blank" onmousedown="event.stopPropagation();" onclick="event.stopPropagation();" draggable="false" style="color: #1d4ed8; background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 9999px; padding: 2px 8px; font-weight: 600; text-decoration: none; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 4px; transition: background-color 0.2s, color 0.2s; cursor: pointer;">
                       Open Map ↗
                     </a>
@@ -7735,6 +7784,13 @@
       if (gate) gate.classList.add("hidden");
       mShow("store");
       loadDashboardData();
+      // Long-open tabs: quietly re-check for a newer build every 3 minutes so a
+      // stale device updates itself without needing a manual refresh.
+      if (!window._versionPoll) {
+        window._versionPoll = setInterval(() => {
+          loadDashboardData({ silent: true });
+        }, 180000);
+      }
     }
 
     // ---- startup ----
