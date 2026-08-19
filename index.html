@@ -817,6 +817,17 @@
       gap: 2px;
     }
 
+    .copy-all-btn {
+      font-size: 0.68rem; font-weight: 600; padding: 3px 8px;
+      background: #eef0fb; color: #251d7f; border: 1px solid #d6dbf5;
+      border-radius: 6px; cursor: pointer; white-space: nowrap;
+      display: inline-flex; align-items: center; gap: 3px;
+    }
+    .copy-all-btn:hover { background: #e0e4f7; }
+    @media (max-width: 768px) {
+      .copy-all-btn { font-size: 0.8rem; padding: 6px 12px; min-height: 34px; }
+    }
+
     .copy-btn-mini {
       background: none;
       border: 1px solid var(--neutral-border);
@@ -1897,7 +1908,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v6.3 Vercel API</span>
+      <span>v6.4 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -4221,14 +4232,18 @@
         if (isExpanded) {
           card.innerHTML = `
             <div class="card-header-row" style="display: flex; justify-content: space-between; align-items: center; width: 100%; overflow: hidden;">
-              <div class="card-title flex items-center gap-1.5" style="align-items: center; overflow: hidden; display: flex; white-space: nowrap; max-width: calc(100% - 60px); flex: 1;">
+              <div class="card-title flex items-center gap-1.5" style="align-items: center; overflow: hidden; display: flex; white-space: nowrap; max-width: calc(100% - 96px); flex: 1;">
                 <span style="color: #94a3b8; font-family: monospace; font-size: 0.75rem; user-select: none; flex-shrink: 0;">⋮⋮</span>
                 <span class="store-badge" style="background-color: #2563eb; color: #ffffff; font-size: 0.7rem; padding: 2px 5px; border-radius: 4px; font-weight: bold; font-family: monospace; flex-shrink: 0;">${escapeHtml(rest.storeNumber || '#')}</span>
                 <span class="font-bold" style="font-size: 0.88rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 1;">${escapeHtml(rest.storeName)}</span>
+                <button class="copy-btn-mini copy-keep" onmousedown="event.stopPropagation();" onclick="event.stopPropagation(); copyTextToClipboard(this.getAttribute('data-text'), this)" data-text="${escapeHtml(rest.storeName || '')}" title="Copy store name" style="flex-shrink: 0;">📋</button>
               </div>
-              <div class="card-actions js-card-edit" style="flex-shrink: 0; display: flex; gap: 4px; margin-left: 6px;">
-                <button class="btn btn-icon btn-icon-edit" onmousedown="event.stopPropagation();" onclick="event.stopPropagation(); openEditModal('restaurant', '${restId}')" title="Edit">✎</button>
-                <button class="btn btn-icon btn-icon-delete" onmousedown="event.stopPropagation();" onclick="event.stopPropagation(); deleteEntry('restaurant', '${restId}')" title="Delete">✕</button>
+              <div style="flex-shrink: 0; display: flex; gap: 4px; margin-left: 6px; align-items: center;">
+                <button class="btn btn-icon copy-all-btn" onmousedown="event.stopPropagation();" onclick="event.stopPropagation(); copyStoreAll('${restId}', this)" title="Copy all store info">📋 All</button>
+                <div class="card-actions js-card-edit" style="display: flex; gap: 4px;">
+                  <button class="btn btn-icon btn-icon-edit" onmousedown="event.stopPropagation();" onclick="event.stopPropagation(); openEditModal('restaurant', '${restId}')" title="Edit">✎</button>
+                  <button class="btn btn-icon btn-icon-delete" onmousedown="event.stopPropagation();" onclick="event.stopPropagation(); deleteEntry('restaurant', '${restId}')" title="Delete">✕</button>
+                </div>
               </div>
             </div>
             <div class="card-details-block" onmousedown="event.stopPropagation();" onclick="event.stopPropagation();" style="pointer-events: auto !important; margin-top: 4px;">
@@ -6657,6 +6672,35 @@
     function capitalize(str) {
       if (!str) return '';
       return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+
+    // Assemble every field of a store into one clipboard block. GPS is written
+    // as a Google Maps URL (per request) rather than raw coordinates.
+    function copyStoreAll(restId, btnElement) {
+      const r = restaurants[restId];
+      if (!r) return;
+      const lines = [];
+      if (r.storeName) lines.push(r.storeName);
+      if (r.storeNumber) lines.push("Store #: " + r.storeNumber);
+      if (r.entity) lines.push("Entity: " + r.entity);
+      if (r.storeManager) lines.push("Manager: " + r.storeManager);
+      if (r.assistantManager) lines.push("AGM: " + r.assistantManager);
+      if (r.address) lines.push("Address: " + r.address);
+      if (r.phone) lines.push("Phone: " + (formatPhoneNumber(r.phone) || r.phone));
+      if (r.email) lines.push("Email: " + r.email);
+      // Relationships, resolved to names.
+      const dirName = (r.assignedDirectorId && directors[r.assignedDirectorId]) ? directors[r.assignedDirectorId].name : "";
+      if (dirName) lines.push("Director: " + dirName);
+      const coachNames = getCoachIds(r).map(cid => areaCoaches[cid] && areaCoaches[cid].name).filter(Boolean);
+      if (coachNames.length) lines.push("District Manager: " + coachNames.join(", "));
+      const techNames = getTechIds(r).map(tid => repairTechnicians[tid] && repairTechnicians[tid].name).filter(Boolean);
+      if (techNames.length) lines.push("Repair Tech: " + techNames.join(", "));
+      // GPS as a maps URL.
+      if (r.latitude || r.longitude) {
+        const q = encodeURIComponent([r.latitude, r.longitude].filter(Boolean).join(","));
+        lines.push("Map: https://www.google.com/maps/search/?api=1&query=" + q);
+      }
+      copyTextToClipboard(lines.join("\n"), btnElement, "Copied all");
     }
 
     function copyTextToClipboard(text, btnElement, label = 'Copied') {
