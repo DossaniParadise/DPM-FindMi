@@ -620,23 +620,43 @@
       transition: flex 0.2s ease, max-width 0.2s ease, min-width 0.2s ease;
     }
 
-    /* Column sizing: Support Staff and DMs/Entities side-by-side, compact but
-       fully readable. They grow modestly on wider screens so text isn't cramped. */
-    .column:nth-child(1),
-    .column:nth-child(2) {
-      flex: 1 1 300px;
-      max-width: 380px;
-      min-width: 250px;
-    }
-    /* On large screens give the side columns a little more room. */
-    @media (min-width: 1500px) {
-      .column:nth-child(1),
-      .column:nth-child(2) { max-width: 440px; }
+    /* Column sizing: Support Staff and DMs/Entities side-by-side. Default
+       widths; the draggable dividers override these via inline flex-basis, and
+       the chosen widths persist in localStorage per device. */
+    .column[data-col="a"],
+    .column[data-col="b"] {
+      flex: 0 0 320px;
+      min-width: 210px;
     }
 
+    /* Draggable divider between columns - like the chat/artifact splitter. */
+    .col-resizer {
+      flex: 0 0 8px;
+      align-self: stretch;
+      cursor: col-resize;
+      position: relative;
+      border-radius: 4px;
+      background: transparent;
+      transition: background 0.15s ease;
+      touch-action: none;
+    }
+    .col-resizer::before {
+      content: "";
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 3px; height: 42px; border-radius: 3px;
+      background: var(--neutral-border, #cbd5e1);
+      transition: background 0.15s ease, height 0.15s ease;
+    }
+    .col-resizer:hover::before,
+    .col-resizer.dragging::before { background: #251d7f; height: 60px; }
+    .col-resizer:hover, .col-resizer.dragging { background: rgba(37,29,127,0.06); }
+    body.col-dragging { cursor: col-resize; user-select: none; }
+    @media (max-width: 768px) { .col-resizer { display: none; } }
+
     /* Restaurants column expanded to occupy all remaining screen space */
-    .column:nth-child(3) {
-      flex: 3 1 auto;
+    .column[data-col="store"] {
+      flex: 1 1 auto;
       min-width: 350px;
     }
 
@@ -1553,13 +1573,12 @@
     /* Responsive spacing and layout tweaks */
     @media (max-width: 1200px) {
       /* Laptop Screen Adjustments */
-      .column:nth-child(1), .column:nth-child(2) {
-        flex: 1 1 240px;
-        max-width: 290px;
-        min-width: 200px;
+      .column[data-col="a"], .column[data-col="b"] {
+        flex: 0 0 260px;
+        min-width: 190px;
       }
-      .column:nth-child(3) {
-        flex: 2 1 auto;
+      .column[data-col="store"] {
+        flex: 1 1 auto;
       }
     }
 
@@ -1570,13 +1589,12 @@
         padding: 6px;
         height: calc(100vh - 84px);
       }
-      .column:nth-child(1), .column:nth-child(2) {
-        flex: 1 1 200px;
-        max-width: 250px;
-        min-width: 180px;
+      .column[data-col="a"], .column[data-col="b"] {
+        flex: 0 0 210px;
+        min-width: 170px;
       }
-      .column:nth-child(3) {
-        flex: 2 1 auto;
+      .column[data-col="store"] {
+        flex: 1 1 auto;
         min-width: 300px;
       }
     }
@@ -1908,7 +1926,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v6.6 Vercel API</span>
+      <span>v6.7 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -2018,6 +2036,7 @@
     </section>
 
     <!-- MIDDLE COLUMN - DISTRICT MANAGERS & ENTITIES -->
+    <div class="col-resizer" data-resizer="0" role="separator" aria-orientation="vertical" aria-label="Resize column" title="Drag to resize"></div>
     <section class="column" data-col="b" style="display: flex; flex-direction: column;">
       <!-- District Managers (Top Half) -->
       <div class="m-panel panel-flex" data-panel="coach" style="display: flex; flex-direction: column; overflow: hidden; min-height: 120px; max-height: 58%;">
@@ -2073,6 +2092,7 @@
     </section>
 
     <!-- RIGHT COLUMN - RESTAURANTS -->
+    <div class="col-resizer" data-resizer="1" role="separator" aria-orientation="vertical" aria-label="Resize column" title="Drag to resize"></div>
     <section class="column" data-col="store">
       <div class="column-header">
         <div class="column-title">
@@ -2557,7 +2577,7 @@
        shared admins/appMeta node; every client compares on each load, and a
        stale client force-reloads itself with a cache-busting ?v= URL. This is
        the same approach FixMi uses so the two apps stay consistent. */
-    const APP_VERSION = "6.6";
+    const APP_VERSION = "6.7";
     let _versionPublished = false;
 
     function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
@@ -7779,11 +7799,91 @@
       revealApp();
     }
 
+    // ---- Draggable column dividers (desktop) ----
+    // Two handles let you resize the left (Support Staff) and middle
+    // (DMs/Entities) columns; the store column takes the rest. Widths persist
+    // per device in localStorage. Handle 0 sizes column A, handle 1 sizes B.
+    const COL_WIDTH_KEY = "dpm_col_widths";
+    function loadColWidths() {
+      try {
+        const raw = localStorage.getItem(COL_WIDTH_KEY);
+        if (!raw) return;
+        const w = JSON.parse(raw);
+        const a = document.querySelector('.column[data-col="a"]');
+        const b = document.querySelector('.column[data-col="b"]');
+        if (a && typeof w.a === "number") a.style.flex = `0 0 ${w.a}px`;
+        if (b && typeof w.b === "number") b.style.flex = `0 0 ${w.b}px`;
+      } catch (e) {}
+    }
+    function saveColWidths() {
+      try {
+        const a = document.querySelector('.column[data-col="a"]');
+        const b = document.querySelector('.column[data-col="b"]');
+        const aw = a ? a.getBoundingClientRect().width : 0;
+        const bw = b ? b.getBoundingClientRect().width : 0;
+        // Only persist real, sensible widths - never 0 (e.g. column hidden).
+        const out = {};
+        if (aw > 50) out.a = Math.round(aw);
+        if (bw > 50) out.b = Math.round(bw);
+        if (out.a || out.b) localStorage.setItem(COL_WIDTH_KEY, JSON.stringify(out));
+      } catch (e) {}
+    }
+    function initColResizers() {
+      const resizers = document.querySelectorAll(".col-resizer");
+      resizers.forEach(handle => {
+        // Each handle resizes the column immediately to its left.
+        const targetCol = handle.previousElementSibling;
+        if (!targetCol || !targetCol.classList.contains("column")) return;
+
+        let startX = 0, startW = 0, dragging = false;
+        const MIN = 170, MAX = 700;
+
+        const onMove = (clientX) => {
+          const delta = clientX - startX;
+          let w = Math.max(MIN, Math.min(MAX, startW + delta));
+          targetCol.style.flex = `0 0 ${w}px`;
+        };
+        const mousemove = (e) => { if (dragging) onMove(e.clientX); };
+        const touchmove = (e) => { if (dragging && e.touches[0]) { onMove(e.touches[0].clientX); e.preventDefault(); } };
+        const end = () => {
+          if (!dragging) return;
+          dragging = false;
+          handle.classList.remove("dragging");
+          document.body.classList.remove("col-dragging");
+          document.removeEventListener("mousemove", mousemove);
+          document.removeEventListener("mouseup", end);
+          document.removeEventListener("touchmove", touchmove);
+          document.removeEventListener("touchend", end);
+          saveColWidths();
+        };
+        const start = (clientX) => {
+          dragging = true;
+          startX = clientX;
+          startW = targetCol.getBoundingClientRect().width;
+          handle.classList.add("dragging");
+          document.body.classList.add("col-dragging");
+          document.addEventListener("mousemove", mousemove);
+          document.addEventListener("mouseup", end);
+          document.addEventListener("touchmove", touchmove, { passive: false });
+          document.addEventListener("touchend", end);
+        };
+        handle.addEventListener("mousedown", (e) => { e.preventDefault(); start(e.clientX); });
+        handle.addEventListener("touchstart", (e) => { if (e.touches[0]) start(e.touches[0].clientX); }, { passive: true });
+        // Double-click resets this column to the default width.
+        handle.addEventListener("dblclick", () => {
+          targetCol.style.flex = "";
+          saveColWidths();
+        });
+      });
+      loadColWidths();
+    }
+
     function revealApp() {
       const gate = document.getElementById("viewGate");
       if (gate) gate.classList.add("hidden");
       mShow("store");
       loadDashboardData();
+      initColResizers();
       // Long-open tabs: quietly re-check for a newer build every 3 minutes so a
       // stale device updates itself without needing a manual refresh.
       if (!window._versionPoll) {
