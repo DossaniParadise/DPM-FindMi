@@ -1926,7 +1926,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v6.7 Vercel API</span>
+      <span>v6.8 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -2577,7 +2577,7 @@
        shared admins/appMeta node; every client compares on each load, and a
        stale client force-reloads itself with a cache-busting ?v= URL. This is
        the same approach FixMi uses so the two apps stay consistent. */
-    const APP_VERSION = "6.7";
+    const APP_VERSION = "6.8";
     let _versionPublished = false;
 
     function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
@@ -7884,11 +7884,16 @@
       mShow("store");
       loadDashboardData();
       initColResizers();
-      // Long-open tabs: quietly re-check for a newer build every 3 minutes so a
-      // stale device updates itself without needing a manual refresh.
+      // Long-open tabs: quietly check for a NEWER BUILD every 3 minutes so a
+      // stale device updates itself. This only reads the version - it does NOT
+      // reload the dataset, so it never disturbs your in-session edits or the
+      // change-history baseline (a full reload was overwriting both).
       if (!window._versionPoll) {
         window._versionPoll = setInterval(() => {
-          loadDashboardData({ silent: true });
+          fetch(API_BASE_URL + "?_=" + Date.now(), { cache: "no-store" })
+            .then(r => r.json())
+            .then(d => { checkAppVersion(d && d.admins); })
+            .catch(() => {});
         }, 180000);
       }
     }
