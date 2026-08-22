@@ -1926,7 +1926,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v6.8 Vercel API</span>
+      <span>v6.9 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -2577,7 +2577,7 @@
        shared admins/appMeta node; every client compares on each load, and a
        stale client force-reloads itself with a cache-busting ?v= URL. This is
        the same approach FixMi uses so the two apps stay consistent. */
-    const APP_VERSION = "6.8";
+    const APP_VERSION = "6.9";
     let _versionPublished = false;
 
     function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
@@ -5275,7 +5275,49 @@
           'entity': 'entities'
         };
 
-        if (confirm(`Are you absolutely sure you want to remove this ${type}? It will sever current branch dependencies.`)) {
+        // Build a clear, NAMED confirmation so a deletion is never a blind click.
+        // Stores and people get an extra-explicit two-line warning naming the
+        // exact record, since those are the costly, hard-to-recreate deletions.
+        const collections = { vps: vps, directors: directors, areaCoaches: areaCoaches,
+          restaurants: restaurants, repairTechnicians: repairTechnicians, entities: entities };
+        const rec = (collections[paths[type]] || {})[id] || {};
+        const typeLabel = { vp: "support staff member", director: "director",
+          coach: "district manager", restaurant: "STORE", technician: "repair technician",
+          entity: "entity" }[type] || type;
+
+        let name;
+        if (type === "restaurant") {
+          name = `[${rec.storeNumber || "#"}] ${rec.storeName || "this store"}`;
+        } else {
+          name = rec.name || "this record";
+        }
+
+        const msg =
+          `Delete this ${typeLabel}?\n\n` +
+          `    ${name}\n\n` +
+          `This permanently removes it from the directory and cannot be undone.`;
+
+        if (type === "restaurant") {
+          // Stores are the costliest accidental deletion, so require an explicit
+          // typed confirmation of the store number - not just a single click.
+          const num = (rec.storeNumber || "").replace(/[^0-9]/g, "");
+          const promptMsg =
+            `Delete STORE ${name}?\n\n` +
+            `This permanently removes the store and cannot be undone.\n\n` +
+            (num
+              ? `To confirm, type the store number (${num}) below:`
+              : `To confirm, type DELETE below:`);
+          const answer = prompt(promptMsg);
+          if (answer === null) return;                 // cancelled
+          const expected = num || "DELETE";
+          if (answer.replace(/[^0-9A-Za-z]/g, "").toUpperCase() !== expected.toUpperCase()) {
+            alert("That didn't match — the store was NOT deleted.");
+            return;
+          }
+        } else if (!confirm(msg)) {
+          return;
+        }
+        {
           db.ref(`${paths[type]}/${id}`).remove(() => {
             // If deleted node was active selection, reset filters safely
             if (type === 'vp' && selectedVpId === id) selectedVpId = null;
