@@ -191,16 +191,18 @@ export default async function handler(req, res) {
         ADMIN: "dpm6",              // Central Manager: Blanket access to all core routing data
         FILTER: "filter123",       // Preventative Maintenance App: Restricted access
         MAINTENANCE: "rm123",      // Repair & Maintenance App (internal source of truth)
-        VENDOR: "vendor123"        // Generic external vendor boards (CHANGE THIS SECRET)
+        VENDOR: "vendor123",       // Generic external vendor boards (CHANGE THIS SECRET)
+        PORTAL: "portal123"        // Dossani Portal launchpad: tile list only (CHANGE THIS SECRET)
       };
 
       const isMasterAdmin = (password === ROLES.ADMIN);
       const isFilterApp   = (password === ROLES.FILTER);
       const isMaintApp    = (password === ROLES.MAINTENANCE);
       const isVendorApp   = (password === ROLES.VENDOR);
+      const isPortalApp   = (password === ROLES.PORTAL);
 
       // If the password matches nothing, reject immediately
-      if (!isMasterAdmin && !isFilterApp && !isMaintApp && !isVendorApp) {
+      if (!isMasterAdmin && !isFilterApp && !isMaintApp && !isVendorApp && !isPortalApp) {
         return res.status(401).json({ error: "Unauthorized: Incorrect Password or Invalid Role" });
       }
 
@@ -215,6 +217,22 @@ export default async function handler(req, res) {
           if (!isAllowedPath) {
             console.warn(`Blocked unauthorized Filter App write attempt to: ${path}`);
             return res.status(403).json({ error: "Access Denied: The Filter App cannot edit core store alignment data." });
+          }
+        }
+      }
+
+      // --- Dossani Portal launchpad: only its own config node ---
+      // The portal publishes its tile list (which links each role/division
+      // sees) to dpmPortal/. Its password ships inside a public HTML file,
+      // so it must never be able to touch tickets, vendors, the directory,
+      // or any other app's data — whitelist exactly the one prefix it owns.
+      if (isPortalApp) {
+        for (let path in updates) {
+          const isAllowedPath = path === 'dpmPortal' || path.startsWith('dpmPortal/');
+
+          if (!isAllowedPath) {
+            console.warn(`Blocked unauthorized Portal write attempt to: ${path}`);
+            return res.status(403).json({ error: "Access Denied: The Portal can only edit its own dpmPortal node." });
           }
         }
       }
