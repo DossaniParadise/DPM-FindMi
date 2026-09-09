@@ -1039,6 +1039,23 @@
     body.editing-unlocked .edit-only { display: inline-flex !important; }
     body.editing-unlocked .card-actions { display: flex; }
 
+    /* Incomplete stores (missing DM / Director / other key fields): soft red
+       tint while editing is unlocked, so gaps are obvious when you can fix
+       them and invisible to viewers. */
+    body.editing-unlocked .card.card-incomplete {
+      background-color: #fff5f5;
+      border-color: #fecaca;
+      box-shadow: inset 3px 0 0 #f87171, 0 1px 2px rgba(0,0,0,0.03);
+    }
+    body.editing-unlocked .card.card-incomplete:hover { border-color: #fca5a5; }
+    .incomplete-pill {
+      display: none; align-items: center; flex-shrink: 0;
+      margin-left: 6px; padding: 1px 6px; border-radius: 9999px;
+      font-size: 0.62rem; font-weight: 600; white-space: nowrap;
+      color: #b91c1c; background: #fee2e2; border: 1px solid #fecaca;
+      overflow: hidden; text-overflow: ellipsis; max-width: 46%;
+    }
+
     /* Support Staff: department group headers + head badge. */
     .staff-dept-header {
       font-size: 0.68rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
@@ -1926,7 +1943,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v6.9 Vercel API</span>
+      <span>v7.1 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -2577,7 +2594,7 @@
        shared admins/appMeta node; every client compares on each load, and a
        stale client force-reloads itself with a cache-busting ?v= URL. This is
        the same approach FixMi uses so the two apps stay consistent. */
-    const APP_VERSION = "6.9";
+    const APP_VERSION = "7.1";
     let _versionPublished = false;
 
     function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
@@ -4264,6 +4281,25 @@
     // Every filter branch funnels through here, so this is the single source of
     // truth for "what the user is currently looking at" - used by the exporter.
     let __visibleStoreIds = [];
+    /* Which key fields a store is missing. A DM/Director that points at a
+       person no longer in the directory counts as missing (the raw id is
+       still on the record but nobody is actually assigned). Edit the list
+       below to change what counts as "incomplete". */
+    const STORE_REQUIRED_FIELDS = [
+      { key: "dm",      label: "DM",        test: r => getCoachIds(r).some(id => areaCoaches[id]) },
+      { key: "do",      label: "Director",  test: r => !!(r.assignedDirectorId && directors[r.assignedDirectorId]) },
+      { key: "entity",  label: "Entity",    test: r => !!((r.assignedEntityId && entities[r.assignedEntityId]) || (r.entity || "").trim()) },
+      { key: "manager", label: "Mgr",       test: r => !!(r.storeManager || "").trim() },
+      { key: "address", label: "Address",   test: r => !!(r.address || "").trim() },
+      { key: "phone",   label: "Phone",     test: r => !!(r.phone || "").trim() },
+      { key: "email",   label: "Email",     test: r => !!(r.email || "").trim() },
+      { key: "gps",     label: "GPS",       test: r => !!(r.latitude && r.longitude) }
+    ];
+    function storeMissingFields(rest) {
+      if (!rest) return [];
+      return STORE_REQUIRED_FIELDS.filter(f => !f.test(rest)).map(f => f.label);
+    }
+
     function renderRestaurantListPlain(keys, parentContainer) {
       __visibleStoreIds = keys.slice();
       if (keys.length === 0) {
@@ -4283,11 +4319,21 @@
         const coachName = getCoachNames(rest).join(', ') || null;
         const dirName = rest.assignedDirectorId && directors[rest.assignedDirectorId] ? directors[rest.assignedDirectorId].name : null;
 
+        const missing = storeMissingFields(rest);
+        // Expanded tile: the full list. Collapsed tile: compact ("⚠ Mgr" or
+        // "⚠ 3 missing") so the store name stays readable; hover for the list.
+        const missingTitle = missing.length ? `Missing: ${escapeHtml(missing.join(", "))}` : "";
+        const missingPill = missing.length
+          ? `<span class="edit-only incomplete-pill" title="${missingTitle}">${missingTitle}</span>` : "";
+        const missingPillShort = missing.length
+          ? `<span class="edit-only incomplete-pill" title="${missingTitle}">⚠ ${missing.length === 1 ? escapeHtml(missing[0]) : missing.length + " missing"}</span>` : "";
+
         const card = document.createElement("div");
-        card.className = "card";
+        card.className = "card" + (missing.length ? " card-incomplete" : "");
         card.setAttribute("draggable", "true");
         card.setAttribute("data-id", restId);
         card.setAttribute("data-type", "restaurant");
+        if (missing.length) card.setAttribute("data-missing", missing.join(", "));
 
         // Click to expand details inline
         card.addEventListener("click", () => toggleRestaurantExpand(restId));
@@ -4310,6 +4356,7 @@
                 <span style="color: #94a3b8; font-family: monospace; font-size: 0.75rem; user-select: none; flex-shrink: 0;">⋮⋮</span>
                 <span class="store-badge" style="background-color: #2563eb; color: #ffffff; font-size: 0.7rem; padding: 2px 5px; border-radius: 4px; font-weight: bold; font-family: monospace; flex-shrink: 0;">${escapeHtml(rest.storeNumber || '#')}</span>
                 <span class="font-bold" style="font-size: 0.88rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 1;">${escapeHtml(rest.storeName)}</span>
+                ${missingPill}
               </div>
               <div style="flex-shrink: 0; display: flex; gap: 4px; margin-left: 6px; align-items: center;">
                 <button class="btn btn-icon copy-all-btn" onmousedown="event.stopPropagation();" onclick="event.stopPropagation(); copyStoreAll('${restId}', this)" title="Copy all store info">📋 All</button>
@@ -4386,6 +4433,7 @@
                 <span style="color: #cbd5e1; font-family: monospace; font-size: 0.75rem; user-select: none; flex-shrink: 0;">⋮⋮</span>
                 <span class="store-badge" style="font-family: monospace; font-size: 0.7rem; padding: 1px 4px; border-radius: 3px; font-weight: bold; flex-shrink: 0; overflow: hidden; white-space: nowrap;">${escapeHtml(rest.storeNumber || '#')}</span>
                 <span class="font-medium" style="font-size: 0.88rem; color: #334155; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 1;">${escapeHtml(getShortStoreName(rest.storeName, rest.storeNumber))}</span>
+                ${missingPillShort}
               </div>
               <span style="font-size: 0.65rem; color: #a1a1aa; font-weight: 500; flex-shrink: 0; margin-left: 6px;">Expand</span>
             </div>
@@ -5157,12 +5205,14 @@
         // Support Staff. Phone kept raw-ish so an extension after a comma
         // survives; display formatting happens in formatStaffPhone.
         const rawPhone = document.getElementById("inputPhone").value.trim();
+        // Name and email are trimmed: PayMi signs people in by matching the
+        // email on this record, and a stray space made the match fail.
         updates[`vps/${id}`] = {
           id: id,
-          name: document.getElementById("inputName").value,
+          name: document.getElementById("inputName").value.trim(),
           jobTitle: document.getElementById("inputStaffTitle").value.trim(),
           department: document.getElementById("inputStaffDept").value.trim(),
-          email: document.getElementById("inputEmail").value,
+          email: document.getElementById("inputEmail").value.trim(),
           phone: rawPhone,
           deptHead: !!document.getElementById("inputStaffHead").checked
         };
@@ -6531,7 +6581,11 @@
     // in-memory collections so the UI can repaint before the network answers.
     // A null value means delete, matching Firebase.
     function applyUpdatesLocally(updates) {
-      const roots = { directors, areaCoaches, repairTechnicians, entities, restaurants };
+      // `vps` is the Support Staff collection (legacy storage key). It was
+      // missing here, so every Support Staff add/edit/delete was posted to the
+      // API but never applied to the local cache — and a successful write does
+      // not re-fetch — so the panel showed stale entries until a full reload.
+      const roots = { directors, areaCoaches, repairTechnicians, entities, restaurants, vps };
       Object.keys(updates).forEach(path => {
         const val = updates[path];
         const parts = path.split("/").filter(Boolean);
