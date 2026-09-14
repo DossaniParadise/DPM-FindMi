@@ -1943,7 +1943,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v7.1 Vercel API</span>
+      <span>v7.2 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -2594,7 +2594,7 @@
        shared admins/appMeta node; every client compares on each load, and a
        stale client force-reloads itself with a cache-busting ?v= URL. This is
        the same approach FixMi uses so the two apps stay consistent. */
-    const APP_VERSION = "7.1";
+    const APP_VERSION = "7.2";
     let _versionPublished = false;
 
     function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
@@ -4289,7 +4289,7 @@
       { key: "dm",      label: "DM",        test: r => getCoachIds(r).some(id => areaCoaches[id]) },
       { key: "do",      label: "Director",  test: r => !!(r.assignedDirectorId && directors[r.assignedDirectorId]) },
       { key: "entity",  label: "Entity",    test: r => !!((r.assignedEntityId && entities[r.assignedEntityId]) || (r.entity || "").trim()) },
-      { key: "manager", label: "Mgr",       test: r => !!(r.storeManager || "").trim() },
+      { key: "manager", label: "Mgr",       test: r => !!((r.storeManager || "").trim() || (r.assistantManager || "").trim()) },
       { key: "address", label: "Address",   test: r => !!(r.address || "").trim() },
       { key: "phone",   label: "Phone",     test: r => !!(r.phone || "").trim() },
       { key: "email",   label: "Email",     test: r => !!(r.email || "").trim() },
@@ -6683,7 +6683,9 @@
       { key: "agm",         label: "Assistant GM",   get: r => r.assistantManager || "" },
       { key: "agmCell",     label: "AGM Cell",       get: r => r.assistantManagerCell || "" },
       { key: "coach",       label: "District Manager", get: r => getCoachNames(r).join(", ") },
+      { key: "coachCell",   label: "District Manager Cell", get: r => getCoachIds(r).map(id => areaCoaches[id] && areaCoaches[id].phone).filter(Boolean).map(p => formatPhoneNumber(p) || p).join(", ") },
       { key: "director",    label: "Director",       get: r => (r.assignedDirectorId && directors[r.assignedDirectorId]) ? directors[r.assignedDirectorId].name : "" },
+      { key: "directorCell",label: "Director Cell",  get: r => (r.assignedDirectorId && directors[r.assignedDirectorId] && directors[r.assignedDirectorId].phone) ? (formatPhoneNumber(directors[r.assignedDirectorId].phone) || directors[r.assignedDirectorId].phone) : "" },
       { key: "tech",        label: "Repair Tech",    get: r => getTechNames(r).join(", ") },
       { key: "entity",      label: "Entity",         get: r => exportEntityName(r) },
       { key: "latitude",    label: "Latitude",       get: r => r.latitude || "" },
