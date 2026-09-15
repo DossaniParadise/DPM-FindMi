@@ -2052,7 +2052,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v8.1 Vercel API</span>
+      <span>v8.2 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -2743,7 +2743,7 @@
        shared admins/appMeta node; every client compares on each load, and a
        stale client force-reloads itself with a cache-busting ?v= URL. This is
        the same approach FixMi uses so the two apps stay consistent. */
-    const APP_VERSION = "8.1";
+    const APP_VERSION = "8.2";
     let _versionPublished = false;
 
     function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
@@ -5628,6 +5628,7 @@
 
     // ---- Batch modal mode switch ----
     let _mgrImportRows = null;  // parsed+matched rows awaiting Apply
+    let _mgrRemoveStale = false; // opt-in: drop existing contacts absent from the sheet
     function setBatchMode(mode) {
       document.querySelectorAll(".bimode-tab").forEach(t => {
         t.classList.toggle("bimode-on", t.getAttribute("data-mode") === mode);
@@ -5833,6 +5834,41 @@
       }).join("");
     }
 
+    // ================= Diff against existing managers =================
+    // Monthly HR feeds must never pile up duplicates. Each incoming row is
+    // compared to the store's existing `managers` and classified:
+    //   current - same person, same phone & title  -> NO write
+    //   update  - same person, phone/title changed -> replace in place
+    //   new     - nobody by that name yet          -> append
+    function mgrNormName(n) {
+      return String(n || "").toLowerCase().replace(/[^a-z ]+/g, " ").replace(/\s+/g, " ").trim();
+    }
+    // Same person? Exact normalized match, or every token of the shorter name
+    // appears in the longer one (tolerates a present/absent middle initial),
+    // with fuzzy tolerance per token.
+    function mgrSamePerson(a, b) {
+      const A = mgrNormName(a).split(" ").filter(Boolean), B = mgrNormName(b).split(" ").filter(Boolean);
+      if (!A.length || !B.length) return false;
+      if (A.join(" ") === B.join(" ")) return true;
+      const [short, long] = A.length <= B.length ? [A, B] : [B, A];
+      // Require the last name to match strongly, then all short tokens present.
+      if (mgrSim(short[short.length - 1], long[long.length - 1]) < 0.85) return false;
+      return short.every(t => t.length === 1 ? long.some(u => u[0] === t) : long.some(u => mgrSim(t, u) >= 0.85));
+    }
+    function mgrDigits(p) { let d = String(p || "").replace(/\D/g, ""); if (d.length === 11 && d[0] === "1") d = d.slice(1); return d; }
+
+    function mgrDiffRow(m) {
+      if (!m.storeId || !restaurants[m.storeId]) return { status: "new", idx: -1 };
+      const existing = Array.isArray(restaurants[m.storeId].managers) ? restaurants[m.storeId].managers : [];
+      const idx = existing.findIndex(e => mgrSamePerson(e.name, m.name));
+      if (idx === -1) return { status: "new", idx: -1 };
+      const e = existing[idx];
+      const samePhone = mgrDigits(e.phone) === mgrDigits(m.phone);
+      const sameTitle = (e.title || "").trim().toLowerCase() === (m.title || "").trim().toLowerCase();
+      if (samePhone && sameTitle) return { status: "current", idx };
+      return { status: "update", idx, was: { phone: e.phone, title: e.title } };
+    }
+
     function renderMgrPreview() {
       const rows = _mgrImportRows || [];
       const live = rows.filter(m => !m.removed);
@@ -5858,7 +5894,19 @@
             <input value="${escapeHtml(m.phone)}" oninput="editMgrRow(${i},'phone',this.value)" style="flex:0 0 108px; padding:3px 6px; font-size:0.74rem; font-family:monospace; border:1px solid #cbd5e1; border-radius:4px;" aria-label="Phone">
             <button onclick="removeMgrRow(${i})" title="Remove this row" style="flex:0 0 auto; background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; border-radius:4px; cursor:pointer; padding:2px 7px; font-weight:700;">✕</button>`;
 
-      let html = `<div style="font-size:0.82rem; font-weight:700; color:#166534; margin:6px 0;">✓ ${matched.length} contact${matched.length===1?"":"s"} ready, across ${Object.keys(byStore).length} store${Object.keys(byStore).length===1?"":"s"} <span style="font-weight:500; color:#64748b;">— edit anything below before applying</span></div>`;
+      // Pre-compute diff counts for the header.
+      let nNew = 0, nUpd = 0, nCur = 0;
+      matched.forEach(m => { const d = mgrDiffRow(m); if (d.status === "new") nNew++; else if (d.status === "update") nUpd++; else nCur++; });
+      let html = `<div style="font-size:0.82rem; font-weight:700; color:#0f172a; margin:6px 0; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <span style="color:#1e40af;">+ ${nNew} new</span>
+        <span style="color:#92400e;">↻ ${nUpd} update${nUpd===1?"":"s"}</span>
+        <span style="color:#166534;">✓ ${nCur} already current</span>
+        <span style="font-weight:500; color:#64748b;">across ${Object.keys(byStore).length} store${Object.keys(byStore).length===1?"":"s"} — only new/updated rows are written</span>
+      </div>
+      <label style="display:flex; align-items:center; gap:6px; font-size:0.72rem; color:#475569; margin:0 0 6px; cursor:pointer;">
+        <input type="checkbox" ${_mgrRemoveStale ? "checked" : ""} onchange="_mgrRemoveStale=this.checked; renderMgrPreview();">
+        <span>Also remove existing contacts who are <strong>not</strong> in this sheet (treat sheet as the current roster)</span>
+      </label>`;
       html += `<div style="max-height:260px; overflow:auto; border:1px solid #e2e8f0; border-radius:6px;">`;
       // Stores in number order too.
       Object.keys(byStore).sort((a, b) => {
@@ -5872,14 +5920,36 @@
         byStore[sid].forEach(i => {
           const m = rows[i];
           const pct = Math.round((m.conf || 0) * 100);
-          // Only flag less-than-certain matches so a monthly run stays quiet.
+          const dfx = mgrDiffRow(m);
+          m._diff = dfx;
+          // Row tint + tag by diff status: green = already current (no write),
+          // amber = update, blue = new.
+          const tint = dfx.status === "current" ? "#f0fdf4" : dfx.status === "update" ? "#fffbeb" : "#eff6ff";
+          const tagBg = dfx.status === "current" ? "#dcfce7" : dfx.status === "update" ? "#fef3c7" : "#dbeafe";
+          const tagFg = dfx.status === "current" ? "#166534" : dfx.status === "update" ? "#92400e" : "#1e40af";
+          const tagTx = dfx.status === "current" ? "✓ current" : dfx.status === "update" ? "↻ update" : "+ new";
+          const dtag = `<span style="flex:0 0 auto; font-size:0.62rem; font-weight:700; padding:1px 7px; border-radius:999px; background:${tagBg}; color:${tagFg};">${tagTx}</span>`;
+          // Only flag less-than-certain store matches so a monthly run stays quiet.
           const badge = (m.conf >= 0.99) ? "" :
             `<span title="${escapeHtml(m.why || "")}" style="flex:0 0 auto; font-size:0.62rem; font-weight:700; padding:1px 6px; border-radius:999px; background:${pct >= 80 ? "#dcfce7" : "#fef3c7"}; color:${pct >= 80 ? "#166534" : "#92400e"};">${pct}%</span>`;
-          html += `<div style="display:flex; gap:4px; align-items:center; margin-bottom:3px;">${rowInputs(i, m)}${badge}</div>`;
+          html += `<div style="display:flex; gap:4px; align-items:center; margin-bottom:3px; background:${tint}; border-radius:5px; padding:2px 3px;">${rowInputs(i, m)}${dtag}${badge}</div>`;
+          if (dfx.status === "update") {
+            const chg = [];
+            if (mgrDigits(dfx.was.phone) !== mgrDigits(m.phone)) chg.push(`phone was ${escapeHtml(dfx.was.phone || "blank")}`);
+            if ((dfx.was.title || "").toLowerCase() !== (m.title || "").toLowerCase()) chg.push(`title was ${escapeHtml(dfx.was.title || "blank")}`);
+            html += `<div style="font-size:0.66rem; color:#92400e; margin:-1px 0 4px 2px;">${chg.join(" · ")}</div>`;
+          }
           if (m.conf < 0.8) {
             html += `<div style="font-size:0.66rem; color:#92400e; margin:-1px 0 4px 2px;">from sheet: "${escapeHtml(m.storeDesc || "")}" — <a href="#" onclick="event.preventDefault(); unassignMgrStore(${i})" style="color:#b45309;">not right? move to review</a></div>`;
           }
         });
+        // Existing contacts at this store that are NOT in the sheet.
+        const exist = Array.isArray(r.managers) ? r.managers : [];
+        const inSheet = byStore[sid].map(i => rows[i]);
+        const stale = exist.filter(e => !inSheet.some(m => mgrSamePerson(e.name, m.name)));
+        if (stale.length) {
+          html += `<div style="font-size:0.66rem; color:#64748b; margin:2px 0 2px 2px;">Not in this sheet (${_mgrRemoveStale ? "will be removed" : "kept"}): ${stale.map(e => escapeHtml(e.name || "?")).join(", ")}</div>`;
+        }
         html += `</div>`;
       });
       if (!matched.length) html += `<div style="padding:10px; font-size:0.76rem; color:#64748b;">No contacts matched yet — assign stores below.</div>`;
@@ -5906,9 +5976,9 @@
 
       const bar = document.getElementById("mgrApplyBar");
       document.getElementById("mgrApplySummary").innerText =
-        `${matched.length} contact${matched.length===1?"":"s"} will be added across ${Object.keys(byStore).length} store${Object.keys(byStore).length===1?"":"s"}.` +
+        `Will write: ${nNew} new, ${nUpd} updated. ${nCur} already current (untouched).` +
         (unmatched.length ? ` ${unmatched.length} still need a store.` : "");
-      bar.style.display = matched.length ? "flex" : "none";
+      bar.style.display = (nNew + nUpd > 0 || _mgrRemoveStale) ? "flex" : "none";
     }
 
     // Assign a store to an unmatched row (from the dropdown).
@@ -5947,24 +6017,55 @@
 
     function applyManagerImport() {
       const live = (_mgrImportRows || []).filter(m => !m.removed && m.storeId);
-      if (!live.length) return;
+      if (!live.length && !_mgrRemoveStale) return;
       performLockedAction(() => {
         const byStore = {};
         live.forEach(m => { (byStore[m.storeId] = byStore[m.storeId] || []).push(m); });
         const updates = {};
-        let count = 0;
+        let nNew = 0, nUpd = 0, nCur = 0, nRem = 0;
+
         Object.keys(byStore).forEach(sid => {
           const r = restaurants[sid];
-          const existing = Array.isArray(r.managers) ? r.managers.slice() : [];
+          // Start from the existing list; merge each sheet row in without duplicating.
+          const merged = (Array.isArray(r.managers) ? r.managers : []).map(e => Object.assign({}, e));
+          const touched = new Set();   // indexes in `merged` present in the sheet
           byStore[sid].forEach(m => {
-            existing.push({ name: (m.name||"").trim(), title: (m.title||"Other").trim(), phone: (m.phone||"").trim() });
-            count++;
+            const clean = { name: (m.name || "").trim(), title: (m.title || "Other").trim(), phone: (m.phone || "").trim() };
+            if (!clean.name && !clean.phone) return;
+            // Dedupe within the sheet itself (same person listed twice).
+            const dupIdx = merged.findIndex((e, i) => touched.has(i) && mgrSamePerson(e.name, clean.name));
+            if (dupIdx !== -1) return;
+            const idx = merged.findIndex(e => mgrSamePerson(e.name, clean.name));
+            if (idx === -1) { merged.push(clean); touched.add(merged.length - 1); nNew++; return; }
+            touched.add(idx);
+            const samePhone = mgrDigits(merged[idx].phone) === mgrDigits(clean.phone);
+            const sameTitle = (merged[idx].title || "").toLowerCase() === clean.title.toLowerCase();
+            if (samePhone && sameTitle) { nCur++; return; }             // already current
+            merged[idx] = clean; nUpd++;                                 // replace in place
           });
-          updates[`restaurants/${sid}/managers`] = existing;
+          let finalList = merged;
+          if (_mgrRemoveStale) {
+            finalList = merged.filter((e, i) => touched.has(i));
+            nRem += merged.length - finalList.length;
+          }
+          // Only write stores that actually changed.
+          const before = JSON.stringify(Array.isArray(r.managers) ? r.managers : []);
+          if (JSON.stringify(finalList) !== before) updates[`restaurants/${sid}/managers`] = finalList;
         });
-        if (confirm(`Add ${count} manager contact${count===1?"":"s"} across ${Object.keys(byStore).length} store${Object.keys(byStore).length===1?"":"s"}? Existing contacts are kept.`)) {
+
+        const changed = nNew + nUpd + nRem;
+        if (!changed) {
+          alert(`Nothing to write - all ${nCur} contact${nCur===1?"":"s"} already match the database.`);
+          closeBatchImportModal();
+          return;
+        }
+        const parts = [];
+        if (nNew) parts.push(`${nNew} new`);
+        if (nUpd) parts.push(`${nUpd} updated`);
+        if (nRem) parts.push(`${nRem} removed`);
+        if (confirm(`Apply: ${parts.join(", ")} across ${Object.keys(updates).length} store${Object.keys(updates).length===1?"":"s"}?\n${nCur} already-current contact${nCur===1?"":"s"} will be left untouched.`)) {
           db.ref().update(updates);
-          alert(`Added ${count} manager contact${count===1?"":"s"}.`);
+          alert(`Done: ${parts.join(", ")}.`);
           closeBatchImportModal();
         }
       });
