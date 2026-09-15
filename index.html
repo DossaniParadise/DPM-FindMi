@@ -837,6 +837,26 @@
       gap: 2px;
     }
 
+    /* Batch import mode tabs */
+    .bimode-tab { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+    .bimode-tab.bimode-on { background: #251d7f; color: #fff; border-color: #251d7f; }
+
+    /* Store managers list (from the GM/AGM phone import). Neat rows: name +
+       title on the left, tappable/copyable phone on the right. */
+    .mgr-list { margin: 4px 0; border: 1px solid #eef1f7; border-radius: 8px; overflow: hidden; }
+    .mgr-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 9px; font-size: 0.82rem; }
+    .mgr-row:nth-child(even) { background: #f8fafc; }
+    .mgr-ident { display: flex; flex-direction: column; min-width: 0; }
+    .mgr-name { font-weight: 600; color: #1e293b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mgr-title { font-size: 0.68rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: .02em; }
+    .mgr-phone-wrap { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+    .mgr-phone { font-family: monospace; font-size: 0.8rem; color: #251d7f; text-decoration: none; font-weight: 600; }
+    @media (max-width: 768px) {
+      .mgr-row { padding: 9px 10px; font-size: 0.9rem; }
+      .mgr-phone { font-size: 0.9rem; }
+      .mgr-title { font-size: 0.72rem; }
+    }
+
     .copy-all-btn {
       font-size: 0.68rem; font-weight: 600; padding: 3px 8px;
       background: #eef0fb; color: #251d7f; border: 1px solid #d6dbf5;
@@ -1943,7 +1963,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v7.2 Vercel API</span>
+      <span>v7.4 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -2477,6 +2497,15 @@
     </div>
   </div>
 
+  <!-- Mobile call chooser: pick which number to dial -->
+  <div class="modal-backdrop" id="callChooserModal">
+    <div class="modal-card" style="max-width: 380px;">
+      <div class="modal-header"><h3 id="callChooserTitle">Call</h3>
+        <button class="modal-close" onclick="closeCallChooser()">&times;</button></div>
+      <div class="modal-body" id="callChooserList" style="display:flex; flex-direction:column; gap:8px; padding-bottom:14px;"></div>
+    </div>
+  </div>
+
   <div class="modal-backdrop" id="batchImportModal">
     <div class="modal-card" style="max-width: 650px;">
       <div class="modal-header">
@@ -2485,6 +2514,36 @@
       </div>
       
       <div class="modal-body" style="display: flex; flex-direction: column; gap: 15px;">
+        <!-- Mode switch: import stores (existing) vs update manager contacts (new) -->
+        <div class="bimode-tabs" style="display: flex; gap: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
+          <button type="button" class="btn btn-xs bimode-tab bimode-on" data-mode="stores" onclick="setBatchMode('stores')">Import Stores</button>
+          <button type="button" class="btn btn-xs bimode-tab" data-mode="managers" onclick="setBatchMode('managers')">Update Manager Contacts</button>
+        </div>
+
+        <!-- ===== MANAGER CONTACT IMPORT (new) ===== -->
+        <div id="bimodeManagers" style="display:none; flex-direction: column; gap: 12px;">
+          <div style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.5;">
+            Drop the GM/AGM phone spreadsheet (.xlsx) below. It reads
+            <strong>Employee_Name, Position, Store_Desc, Primary_Phone</strong>, matches each row to a store
+            (by store number in the description, then by name), simplifies titles to GM / AGM / In Training,
+            and previews everything. <strong>Nothing is written until you press Apply.</strong> Managers are
+            added to each store's contact list; existing managers and the old GM/AGM fields are left as-is.
+          </div>
+          <div id="mgrDropZone" style="border: 2px dashed #cbd5e1; border-radius: 10px; padding: 26px 14px; text-align: center; color: #64748b; cursor: pointer; background: #f8fafc; transition: all .15s;">
+            <div style="font-size: 1.6rem;">📄</div>
+            <div style="font-weight: 600; margin-top: 4px;">Drop .xlsx here, or click to choose</div>
+            <div style="font-size: 0.72rem; margin-top: 2px;" id="mgrFileName">No file selected</div>
+            <input type="file" id="mgrFileInput" accept=".xlsx,.xls" style="display:none;">
+          </div>
+          <div id="mgrPreview"></div>
+          <div id="mgrApplyBar" style="display:none; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <span id="mgrApplySummary" style="font-size: 0.8rem; color: #475569;"></span>
+            <button type="button" class="btn btn-success" id="mgrApplyBtn" onclick="applyManagerImport()">Apply to Database</button>
+          </div>
+        </div>
+
+        <!-- ===== STORE IMPORT (existing) ===== -->
+        <div id="bimodeStores" style="display: flex; flex-direction: column; gap: 15px;">
         <div class="form-group">
           <label>Paste Spreadsheet Data (TSV Format)</label>
           <div style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 8px; line-height: 1.4; display: flex; flex-direction: column; gap: 4px;">
@@ -2548,10 +2607,11 @@
             </div>
           </div>
         </div>
+        </div><!-- /bimodeStores -->
       </div>
       
       <div class="modal-footer" style="gap: 8px;">
-        <label style="display: flex; align-items: center; gap: 5px; font-size: 0.72rem; color: #475569; margin-right: auto; cursor: pointer;">
+        <label id="batchGeocodeLabel" style="display: flex; align-items: center; gap: 5px; font-size: 0.72rem; color: #475569; margin-right: auto; cursor: pointer;">
           <input type="checkbox" id="batchGeocodeToggle" checked>
           <span>Look up missing GPS coordinates</span>
         </label>
@@ -2594,7 +2654,7 @@
        shared admins/appMeta node; every client compares on each load, and a
        stale client force-reloads itself with a cache-busting ?v= URL. This is
        the same approach FixMi uses so the two apps stay consistent. */
-    const APP_VERSION = "7.2";
+    const APP_VERSION = "7.4";
     let _versionPublished = false;
 
     function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
@@ -4150,6 +4210,7 @@
           if (!r) return false;
           return globalMatch(r.storeName, r.storeNumber, r.address, r.phone, r.email,
             r.storeManager, r.assistantManager,
+            (Array.isArray(r.managers) ? r.managers.map(m => (m.name||"")+" "+(m.title||"")+" "+(m.phone||"")).join(" ") : ""),
             getCoachNames(r).join(" "), getTechNames(r).join(" "),
             (r.assignedDirectorId && directors[r.assignedDirectorId]) ? directors[r.assignedDirectorId].name : "",
             (r.assignedEntityId && entities[r.assignedEntityId]) ? entities[r.assignedEntityId].name : (r.entity || ""));
@@ -4368,7 +4429,9 @@
             </div>
             <div class="card-details-block" onmousedown="event.stopPropagation();" onclick="event.stopPropagation();" style="pointer-events: auto !important; margin-top: 4px;">
               <div class="m-actions" onmousedown="event.stopPropagation();" onclick="event.stopPropagation();">
-                <a class="m-act m-act-call ${mTel ? '' : 'm-act-off'}" ${mTel ? 'href="tel:' + mTel + '"' : ''} onclick="event.stopPropagation();" draggable="false" aria-label="Call store"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L14 12l5 2v4a2 2 0 0 1-2 2A15 15 0 0 1 2 6a2 2 0 0 1 2-2z"/></svg><span>Call</span></a>
+                ${(Array.isArray(rest.managers) && rest.managers.some(m => m.phone))
+                  ? `<a class="m-act m-act-call" onclick="event.stopPropagation(); mCallChooser('${restId}')" draggable="false" aria-label="Call"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L14 12l5 2v4a2 2 0 0 1-2 2A15 15 0 0 1 2 6a2 2 0 0 1 2-2z"/></svg><span>Call</span></a>`
+                  : `<a class="m-act m-act-call ${mTel ? '' : 'm-act-off'}" ${mTel ? 'href="tel:' + mTel + '"' : ''} onclick="event.stopPropagation();" draggable="false" aria-label="Call store"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L14 12l5 2v4a2 2 0 0 1-2 2A15 15 0 0 1 2 6a2 2 0 0 1 2-2z"/></svg><span>Call</span></a>`}
                 <a class="m-act m-act-mail ${mMail ? '' : 'm-act-off'}" ${mMail ? 'href="mailto:' + escapeHtml(mMail) + '"' : ''} onclick="event.stopPropagation();" draggable="false" aria-label="Email store"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v14H3z"/><path d="M3 6l9 7 9-7"/></svg><span>Email</span></a>
                 <a class="m-act m-act-nav ${mNav ? '' : 'm-act-off'}" ${mNav ? 'href="' + mNav + '" target="_blank" rel="noopener"' : ''} onclick="event.stopPropagation();" draggable="false" aria-label="Navigate to store"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg><span>Go</span></a>
               </div>
@@ -4383,6 +4446,14 @@
               ${rest.assistantManager ? `
                 <div class="card-detail" style="font-weight: 600; color: #334155; display: flex; align-items: center; width: 100%;">
                   <span>👤 AGM: ${escapeHtml(rest.assistantManager)}</span>
+                </div>` : ''}
+              ${(Array.isArray(rest.managers) && rest.managers.length) ? `
+                <div class="mgr-list">
+                  ${rest.managers.map(m => `
+                    <div class="mgr-row">
+                      <span class="mgr-ident"><span class="mgr-name">${escapeHtml(m.name || '')}</span><span class="mgr-title">${escapeHtml(m.title || '')}</span></span>
+                      ${m.phone ? `<span class="mgr-phone-wrap"><a href="tel:${escapeHtml((m.phone||'').replace(/[^0-9]/g,''))}" class="mgr-phone">${escapeHtml(m.phone)}</a><button class="copy-btn-mini copy-keep" onclick="event.stopPropagation(); copyTextToClipboard(this.getAttribute('data-text'), this)" data-text="${escapeHtml(m.phone)}">📋</button></span>` : ''}
+                    </div>`).join('')}
                 </div>` : ''}
               <div class="card-detail" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                 <span style="overflow: hidden; text-overflow: ellipsis;">📍 Address: ${escapeHtml(rest.address || 'No address')}</span>
@@ -5480,10 +5551,220 @@
       }
 
       document.getElementById("batchImportModal").classList.add("active");
+      setBatchMode("stores");
+      initMgrImport();
+      // Reset any prior manager-import state.
+      _mgrImportRows = null;
+      const mp = document.getElementById("mgrPreview"); if (mp) mp.innerHTML = "";
+      const mb = document.getElementById("mgrApplyBar"); if (mb) mb.style.display = "none";
+      const mf = document.getElementById("mgrFileName"); if (mf) mf.innerText = "No file selected";
+      const mi = document.getElementById("mgrFileInput"); if (mi) mi.value = "";
     }
 
     function closeBatchImportModal() {
       document.getElementById("batchImportModal").classList.remove("active");
+    }
+
+    // ---- Batch modal mode switch ----
+    let _mgrImportRows = null;  // parsed+matched rows awaiting Apply
+    let _mgrUnmatched = [];     // rows that couldn't be matched to a store
+    function setBatchMode(mode) {
+      document.querySelectorAll(".bimode-tab").forEach(t => {
+        t.classList.toggle("bimode-on", t.getAttribute("data-mode") === mode);
+      });
+      document.getElementById("bimodeStores").style.display = mode === "stores" ? "flex" : "none";
+      document.getElementById("bimodeManagers").style.display = mode === "managers" ? "flex" : "none";
+      // Footer controls belong to the store importer only.
+      document.getElementById("batchImportBtn").style.display = mode === "stores" ? "" : "none";
+      document.getElementById("batchGeocodeLabel").style.display = mode === "stores" ? "flex" : "none";
+    }
+
+    // Build a fast lookup of stores by number and by normalized name.
+    function buildStoreMatchIndex() {
+      const byNum = {}, byName = {};
+      const norm = (s) => (s || "").toLowerCase()
+        .replace(/burger king/g, "bk").replace(/\bbk\b/g, "bk")
+        .replace(/paradise quick stop/g, "pqs").replace(/paradise qs/g, "pqs").replace(/quick stop/g, "pqs")
+        .replace(/travel stop/g, "ts").replace(/car wash/g, "cw")
+        .replace(/[^a-z0-9]/g, "");
+      Object.keys(restaurants).forEach(id => {
+        const r = restaurants[id];
+        const n = (r.storeNumber || "").replace(/[^0-9]/g, "");
+        if (n) byNum[n] = id;
+        const nm = norm(r.storeName);
+        if (nm) byName[nm] = id;
+      });
+      return { byNum, byName, norm };
+    }
+
+    // Match one sheet Store_Desc to a store id. Number first, then name.
+    function matchStoreForDesc(desc, idx) {
+      const num = storeNumFromDesc(desc);
+      if (num) {
+        const padded = num.replace(/^0+/, "");
+        // try exact and zero-variant
+        for (const key of Object.keys(idx.byNum)) {
+          if (key.replace(/^0+/, "") === padded) return idx.byNum[key];
+        }
+      }
+      const nm = idx.norm(desc);
+      if (idx.byName[nm]) return idx.byName[nm];
+      // contains match either direction (guard against tiny strings)
+      if (nm.length >= 5) {
+        for (const key of Object.keys(idx.byName)) {
+          if (key.length >= 5 && (key.includes(nm) || nm.includes(key))) return idx.byName[key];
+        }
+      }
+      return null;
+    }
+
+    function initMgrImport() {
+      const zone = document.getElementById("mgrDropZone");
+      const input = document.getElementById("mgrFileInput");
+      if (!zone || zone._wired) return;
+      zone._wired = true;
+      zone.addEventListener("click", () => input.click());
+      zone.addEventListener("dragover", (e) => { e.preventDefault(); zone.style.borderColor = "#251d7f"; zone.style.background = "#eef0fb"; });
+      zone.addEventListener("dragleave", () => { zone.style.borderColor = "#cbd5e1"; zone.style.background = "#f8fafc"; });
+      zone.addEventListener("drop", (e) => {
+        e.preventDefault(); zone.style.borderColor = "#cbd5e1"; zone.style.background = "#f8fafc";
+        if (e.dataTransfer.files[0]) handleMgrFile(e.dataTransfer.files[0]);
+      });
+      input.addEventListener("change", () => { if (input.files[0]) handleMgrFile(input.files[0]); });
+    }
+
+    function handleMgrFile(file) {
+      document.getElementById("mgrFileName").innerText = file.name;
+      ensureSheetJS(() => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const wb = XLSX.read(new Uint8Array(e.target.result), { type: "array" });
+            const sheet = wb.Sheets[wb.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+            parseAndPreviewManagers(rows);
+          } catch (err) {
+            document.getElementById("mgrPreview").innerHTML =
+              `<div style="color:#c0392b; font-size:0.8rem;">Couldn't read that file: ${escapeHtml(err.message)}</div>`;
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      }, () => {
+        document.getElementById("mgrPreview").innerHTML =
+          `<div style="color:#c0392b; font-size:0.8rem;">Couldn't load the spreadsheet reader. Check your connection and retry.</div>`;
+      });
+    }
+
+    function parseAndPreviewManagers(rows) {
+      _mgrUnmatched = [];
+      const idx = buildStoreMatchIndex();
+      const matched = [], unmatched = [];
+      rows.forEach(row => {
+        // tolerant column lookup
+        const get = (names) => { for (const n of names) { for (const k of Object.keys(row)) { if (k.toLowerCase().replace(/[^a-z]/g,"") === n) return row[k]; } } return ""; };
+        const name = get(["employeename","name","employee"]);
+        const pos = get(["position","title","role"]);
+        const desc = get(["storedesc","store","storename","location"]);
+        const phone = get(["primaryphone","phone","cell","mobile"]);
+        if (!name && !phone) return; // skip blank rows
+        const storeId = matchStoreForDesc(desc, idx);
+        const entry = {
+          storeId,
+          storeDesc: desc,
+          name: reformatPersonName(name),
+          title: simplifyManagerTitle(pos),
+          rawTitle: pos,
+          phone: cleanImportPhone(phone)
+        };
+        if (storeId) matched.push(entry); else unmatched.push(entry);
+      });
+      _mgrImportRows = matched;
+      renderMgrPreview(unmatched);
+    }
+
+    // Renders the editable preview from _mgrImportRows. Rows carry their index so
+    // edits (name/title/phone) and removals map back to the array before Apply.
+    function renderMgrPreview(unmatched) {
+      unmatched = unmatched || [];
+      const rows = _mgrImportRows || [];
+      const live = rows.filter(m => !m.removed);
+      const byStore = {};
+      rows.forEach((m, i) => { if (!m.removed) (byStore[m.storeId] = byStore[m.storeId] || []).push(i); });
+
+      const TITLES = ["GM", "AGM", "In Training", "Other"];
+      let html = `<div style="font-size:0.82rem; font-weight:700; color:#166534; margin:6px 0;">✓ ${live.length} contact${live.length===1?"":"s"} to add, across ${Object.keys(byStore).length} store${Object.keys(byStore).length===1?"":"s"} <span style="font-weight:500; color:#64748b;">— edit anything below before applying</span></div>`;
+      html += `<div style="max-height:300px; overflow:auto; border:1px solid #e2e8f0; border-radius:6px;">`;
+      Object.keys(byStore).forEach(sid => {
+        const r = restaurants[sid];
+        html += `<div style="padding:6px 8px; border-bottom:1px solid #f1f5f9;">
+          <div style="font-weight:700; font-size:0.76rem; color:#251d7f; margin-bottom:4px;">[${escapeHtml(r.storeNumber||"#")}] ${escapeHtml(r.storeName||"")}</div>`;
+        byStore[sid].forEach(i => {
+          const m = rows[i];
+          html += `<div style="display:flex; gap:4px; align-items:center; margin-bottom:3px;">
+            <input value="${escapeHtml(m.name)}" oninput="editMgrRow(${i},'name',this.value)" style="flex:2; min-width:0; padding:3px 6px; font-size:0.74rem; border:1px solid #cbd5e1; border-radius:4px;" aria-label="Name">
+            <select onchange="editMgrRow(${i},'title',this.value)" style="flex:0 0 92px; padding:3px 4px; font-size:0.74rem; border:1px solid #cbd5e1; border-radius:4px;" aria-label="Title">
+              ${TITLES.map(t => `<option ${m.title===t?"selected":""}>${t}</option>`).join("")}
+            </select>
+            <input value="${escapeHtml(m.phone)}" oninput="editMgrRow(${i},'phone',this.value)" style="flex:0 0 108px; padding:3px 6px; font-size:0.74rem; font-family:monospace; border:1px solid #cbd5e1; border-radius:4px;" aria-label="Phone">
+            <button onclick="removeMgrRow(${i})" title="Remove this row" style="flex:0 0 auto; background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; border-radius:4px; cursor:pointer; padding:2px 7px; font-weight:700;">✕</button>
+          </div>`;
+        });
+        html += `</div>`;
+      });
+      html += `</div>`;
+
+      if (unmatched.length) {
+        // Store the unmatched list so re-renders (after edits) keep showing it.
+        _mgrUnmatched = unmatched;
+      }
+      if (_mgrUnmatched && _mgrUnmatched.length) {
+        html += `<div style="font-size:0.82rem; font-weight:700; color:#b45309; margin:10px 0 4px;">⚠ ${_mgrUnmatched.length} row${_mgrUnmatched.length===1?"":"s"} could not be matched to a store (skipped):</div>`;
+        html += `<div style="max-height:120px; overflow:auto; border:1px solid #fde68a; border-radius:6px; background:#fffbeb; padding:6px 10px; font-size:0.73rem; color:#92400e;">`;
+        _mgrUnmatched.forEach(u => { html += `<div>${escapeHtml(u.name)} (${escapeHtml(u.title)}) — "${escapeHtml(u.storeDesc)}"</div>`; });
+        html += `</div>`;
+      }
+      document.getElementById("mgrPreview").innerHTML = html;
+
+      const bar = document.getElementById("mgrApplyBar");
+      document.getElementById("mgrApplySummary").innerText =
+        `${live.length} contact${live.length===1?"":"s"} will be added across ${Object.keys(byStore).length} store${Object.keys(byStore).length===1?"":"s"}. ${(_mgrUnmatched||[]).length} skipped.`;
+      bar.style.display = live.length ? "flex" : "none";
+    }
+
+    function editMgrRow(i, field, val) {
+      if (_mgrImportRows && _mgrImportRows[i]) _mgrImportRows[i][field] = val;
+      // Don't re-render on every keystroke (would lose focus); just update state.
+    }
+    function removeMgrRow(i) {
+      if (_mgrImportRows && _mgrImportRows[i]) {
+        _mgrImportRows[i].removed = true;
+        renderMgrPreview();
+      }
+    }
+
+    function applyManagerImport() {
+      const live = (_mgrImportRows || []).filter(m => !m.removed && m.storeId);
+      if (!live.length) return;
+      performLockedAction(() => {
+        const byStore = {};
+        live.forEach(m => { (byStore[m.storeId] = byStore[m.storeId] || []).push(m); });
+        const updates = {};
+        let count = 0;
+        Object.keys(byStore).forEach(sid => {
+          const r = restaurants[sid];
+          const existing = Array.isArray(r.managers) ? r.managers.slice() : [];
+          byStore[sid].forEach(m => {
+            existing.push({ name: (m.name||"").trim(), title: (m.title||"Other").trim(), phone: (m.phone||"").trim() });
+            count++;
+          });
+          updates[`restaurants/${sid}/managers`] = existing;
+        });
+        if (confirm(`Add ${count} manager contact${count===1?"":"s"} across ${Object.keys(byStore).length} store${Object.keys(byStore).length===1?"":"s"}? Existing contacts are kept.`)) {
+          db.ref().update(updates);
+          alert(`Added ${count} manager contact${count===1?"":"s"}.`);
+          closeBatchImportModal();
+        }
+      });
     }
 
     function syncBatchDirector(coachId) {
@@ -6843,6 +7124,38 @@
 
     // Assemble every field of a store into one clipboard block. GPS is written
     // as a Google Maps URL (per request) rather than raw coordinates.
+    // Mobile: when a store has multiple numbers (store line + managers), let the
+    // user pick who to call instead of dialing the store line blindly.
+    function mCallChooser(restId) {
+      const r = restaurants[restId];
+      if (!r) return;
+      const opts = [];
+      if (r.phone) opts.push({ label: "Store Line", sub: r.storeName || "", phone: r.phone });
+      (Array.isArray(r.managers) ? r.managers : []).forEach(m => {
+        if (m.phone) opts.push({ label: m.name || "Manager", sub: m.title || "", phone: m.phone });
+      });
+      if (r.managerCell) opts.push({ label: r.storeManager || "Manager", sub: "GM cell", phone: r.managerCell });
+      if (r.assistantManagerCell) opts.push({ label: r.assistantManager || "AGM", sub: "AGM cell", phone: r.assistantManagerCell });
+
+      if (opts.length === 0) return;
+      if (opts.length === 1) { window.location.href = "tel:" + opts[0].phone.replace(/[^0-9]/g, ""); return; }
+
+      document.getElementById("callChooserTitle").innerText = "Call — " + (r.storeName || "Store");
+      document.getElementById("callChooserList").innerHTML = opts.map(o => `
+        <a href="tel:${escapeHtml((o.phone||'').replace(/[^0-9]/g,''))}" onclick="closeCallChooser()"
+           style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:12px 14px; border:1px solid #e2e8f0; border-radius:10px; text-decoration:none; color:#1e293b;">
+          <span style="display:flex; flex-direction:column; min-width:0;">
+            <span style="font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(o.label)}</span>
+            <span style="font-size:0.72rem; color:#64748b;">${escapeHtml(o.sub)}</span>
+          </span>
+          <span style="font-family:monospace; color:#251d7f; font-weight:600; flex-shrink:0;">📞 ${escapeHtml(o.phone)}</span>
+        </a>`).join("");
+      document.getElementById("callChooserModal").classList.add("active");
+    }
+    function closeCallChooser() {
+      document.getElementById("callChooserModal").classList.remove("active");
+    }
+
     function copyStoreAll(restId, btnElement) {
       const r = restaurants[restId];
       if (!r) return;
@@ -6852,6 +7165,11 @@
       if (r.entity) lines.push("Entity: " + r.entity);
       if (r.storeManager) lines.push("Manager: " + r.storeManager);
       if (r.assistantManager) lines.push("AGM: " + r.assistantManager);
+      if (Array.isArray(r.managers)) {
+        r.managers.forEach(m => {
+          if (m.name || m.phone) lines.push(`${m.title || "Manager"}: ${m.name || ""}${m.phone ? " — " + m.phone : ""}`.trim());
+        });
+      }
       if (r.address) lines.push("Address: " + r.address);
       if (r.phone) lines.push("Phone: " + (formatPhoneNumber(r.phone) || r.phone));
       if (r.email) lines.push("Email: " + r.email);
@@ -6917,6 +7235,45 @@
         }
         document.body.removeChild(textArea);
       });
+    }
+
+    // ---- Manager contact import helpers ----
+    // "HORRELL, JACOB E" -> "Jacob E Horrell" (Title Case, First Last).
+    function reformatPersonName(raw) {
+      if (!raw) return "";
+      let s = String(raw).trim();
+      const titleCase = (w) => w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w;
+      const fixToken = (tok) => tok.split("-").map(titleCase).join("-"); // keep hyphens
+      if (s.indexOf(",") !== -1) {
+        const parts = s.split(",");
+        const last = parts[0].trim().split(/\s+/).map(fixToken).join(" ");
+        const first = parts.slice(1).join(",").trim().split(/\s+/).map(fixToken).join(" ");
+        return (first + " " + last).trim();
+      }
+      return s.split(/\s+/).map(fixToken).join(" ");
+    }
+
+    // Sheet position -> simplified title.
+    function simplifyManagerTitle(pos) {
+      const p = (pos || "").toLowerCase();
+      if (p.indexOf("training") !== -1) return "In Training";
+      if (p.indexOf("assistant") !== -1) return "AGM";
+      if (p.indexOf("general manager") !== -1 || p === "gm" || p.indexOf("store manager") !== -1) return "GM";
+      return "Other";
+    }
+
+    // Clean an 11-digit (leading 1) or 10-digit phone to XXX-XXX-XXXX.
+    function cleanImportPhone(raw) {
+      let d = String(raw || "").replace(/[^0-9]/g, "");
+      if (d.length === 11 && d.charAt(0) === "1") d = d.slice(1);
+      if (d.length === 10) return d.slice(0,3) + "-" + d.slice(3,6) + "-" + d.slice(6);
+      return String(raw || "").trim();
+    }
+
+    // Extract a store number from a free-text store description if present.
+    function storeNumFromDesc(desc) {
+      const m = String(desc || "").match(/\b(\d{3,5})\b/);
+      return m ? m[1] : "";
     }
 
     function formatPhoneNumber(phoneStr) {
