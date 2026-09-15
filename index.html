@@ -1997,7 +1997,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v7.6 Vercel API</span>
+      <span>v7.7 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -2688,7 +2688,7 @@
        shared admins/appMeta node; every client compares on each load, and a
        stale client force-reloads itself with a cache-busting ?v= URL. This is
        the same approach FixMi uses so the two apps stay consistent. */
-    const APP_VERSION = "7.6";
+    const APP_VERSION = "7.7";
     let _versionPublished = false;
 
     function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
@@ -7766,6 +7766,27 @@
       return [lat, lng];
     }
 
+    // A "site" is one physical building. Combo stores (BK + C-Store, etc.)
+    // share an address, so we key on the normalized address - NOT on exact
+    // coordinates. Separately-geocoded stores at one address usually differ by
+    // a few meters, which defeated the old coordinate-only grouping and left
+    // them stacked on one pixel with only the top pin clickable.
+    // Normalization: lowercase, strip punctuation, collapse spaces, and drop
+    // trailing suite/unit tokens so "1029 S Fort Hood St Ste 120" == "1029 S
+    // Fort Hood St". Falls back to the coordinate when there's no address.
+    function __mapSiteKey(rest) {
+      let a = (rest.address || "").toLowerCase();
+      if (a) {
+        a = a.replace(/\b(suite|ste|unit|apt|#)\s*[a-z0-9-]+\b/g, " ")
+             .replace(/[^a-z0-9]+/g, " ")
+             .replace(/\b(street|st|road|rd|drive|dr|avenue|ave|boulevard|blvd|highway|hwy|loop|lp)\b/g, " ")
+             .replace(/\s+/g, " ").trim();
+        if (a) return "addr:" + a;
+      }
+      const ll = __mapLatLng(rest);
+      return ll ? "ll:" + ll[0].toFixed(5) + "," + ll[1].toFixed(5) : "";
+    }
+
     // Build a colored teardrop pin as a Leaflet divIcon.
     // `color` may be a single colour OR an array — a store covered by two techs
     // gets ONE pin split into equal vertical bands (half/half), rather than
@@ -7919,29 +7940,53 @@
       });
     }
 
-    function __mapPopupHtml(restId, rest) {
-      const coachName = getCoachNames(rest).join(", ") || null;
-      const dirName = rest.assignedDirectorId && directors[rest.assignedDirectorId] ? directors[rest.assignedDirectorId].name : null;
-      const techName = getTechNames(rest).join(", ") || null;
-      const entName = (rest.assignedEntityId && entities[rest.assignedEntityId]) ? entities[rest.assignedEntityId].name : (rest.entity || null);
-      const row = (label, val) => val ? `<div style="margin:2px 0;font-size:12px;"><strong>${escapeHtml(label)}:</strong> ${escapeHtml(String(val))}</div>` : "";
+    function __mapPopupHtml(restId, rest, siteMembers) {
+      // Render one store block. `dim` marks a sibling outside the active
+      // legend filter so it's still visible (context) but clearly secondary.
+      const block = (rid, r, isPrimary) => {
+        const coachName = getCoachNames(r).join(", ") || null;
+        const dirName = r.assignedDirectorId && directors[r.assignedDirectorId] ? directors[r.assignedDirectorId].name : null;
+        const techName = getTechNames(r).join(", ") || null;
+        const entName = (r.assignedEntityId && entities[r.assignedEntityId]) ? entities[r.assignedEntityId].name : (r.entity || null);
+        const keys = __mapGroupsOf(r).map(g => g.key);
+        const inFilter = !__mapActiveGroup || keys.indexOf(__mapActiveGroup) !== -1;
+        const row = (label, val) => val ? `<div style="margin:2px 0;font-size:12px;"><strong>${escapeHtml(label)}:</strong> ${escapeHtml(String(val))}</div>` : "";
+        return `
+          <div style="${isPrimary ? "" : "margin-top:8px;padding-top:8px;border-top:1px dashed #cbd5e1;"}${inFilter ? "" : "opacity:.72;"}">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap;">
+              <span style="background:#251d7f;color:#fff;font-size:11px;padding:1px 5px;border-radius:4px;font-weight:bold;font-family:monospace;">${escapeHtml(r.storeNumber || "#")}</span>
+              <span style="font-weight:700;font-size:13px;">${escapeHtml(r.storeName || "Store")}</span>
+              ${!inFilter ? `<span style="font-size:10px;color:#b45309;background:#fef3c7;padding:1px 6px;border-radius:999px;">outside current filter</span>` : ""}
+            </div>
+            ${row("Mgr", r.storeManager)}
+            ${row("Entity", entName)}
+            ${row("Director", dirName)}
+            ${row("DM", coachName)}
+            ${row("Tech", techName)}
+            <button onclick="__mapEditStore('${rid}')"
+              style="margin-top:6px;width:100%;background:${isPrimary ? "#1b1660" : "#475569"};color:#fff;border:none;border-radius:6px;padding:5px 10px;font-weight:600;font-size:12px;cursor:pointer;">
+              ✎ Edit ${escapeHtml((r.storeName || "Store").length > 22 ? "Store" : (r.storeName || "Store"))}
+            </button>
+          </div>`;
+      };
+
+      // Clicked store first, then every other store sharing this building.
+      const members = (siteMembers && siteMembers.length > 1) ? siteMembers : [restId];
+      const others = members.filter(id => id !== restId && restaurants[id]);
+      const siteHeader = others.length
+        ? `<div style="font-size:11px;font-weight:700;color:#0369a1;background:#e0f2fe;padding:3px 8px;border-radius:6px;margin-bottom:6px;">📍 ${members.length} stores at this location</div>`
+        : "";
       return `
-        <div style="min-width:210px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-            <span style="background:#251d7f;color:#fff;font-size:11px;padding:1px 5px;border-radius:4px;font-weight:bold;font-family:monospace;">${escapeHtml(rest.storeNumber || "#")}</span>
-            <span style="font-weight:700;font-size:13px;">${escapeHtml(rest.storeName || "Store")}</span>
-          </div>
-          ${row("Address", rest.address)}
-          ${row("Mgr", rest.storeManager)}
-          ${row("Entity", entName)}
-          ${row("Director", dirName)}
-          ${row("Coach", coachName)}
-          ${row("Tech", techName)}
-          <button onclick="__mapEditStore('${restId}')"
-            style="margin-top:8px;width:100%;background:#1b1660;color:#fff;border:none;border-radius:6px;padding:6px 10px;font-weight:600;font-size:12px;cursor:pointer;">
-            ✎ Edit Store
-          </button>
+        <div style="min-width:220px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;">
+          ${siteHeader}
+          ${row_addr(rest.address)}
+          ${block(restId, rest, true)}
+          ${others.map(id => block(id, restaurants[id], false)).join("")}
         </div>`;
+
+      function row_addr(addr) {
+        return addr ? `<div style="margin:0 0 4px;font-size:12px;color:#475569;">${escapeHtml(addr)}</div>` : "";
+      }
     }
 
     window.__mapEditStore = function (restId) {
@@ -8113,15 +8158,31 @@
       const groupOrder = [], groupLabel = {}, groupCount = {};
       let unassigned = 0;
       const plotted = [], missing = [];
+      // Pass 1: group every store into its site (by normalized address) and
+      // find each site's canonical coordinate = the first valid one found.
+      const __sites = {};   // siteKey -> { ll, members:[restId] }
       Object.entries(restaurants).forEach(([restId, rest]) => {
-        const ll = __mapLatLng(rest);
+        const sk = __mapSiteKey(rest);
+        if (!sk) return;
+        const s = (__sites[sk] = __sites[sk] || { ll: null, members: [] });
+        s.members.push(restId);
+        if (!s.ll) { const ll = __mapLatLng(rest); if (ll) s.ll = ll; }
+      });
+      // Pass 2: plot. A store uses its SITE's coordinate, so co-located
+      // siblings that were geocoded a few meters apart snap to one anchor and
+      // fan out together, and a sibling with NO coordinate inherits the site's
+      // instead of silently dropping off the map.
+      Object.entries(restaurants).forEach(([restId, rest]) => {
+        const sk = __mapSiteKey(rest);
+        const site = sk ? __sites[sk] : null;
+        const ll = (site && site.ll) ? site.ll : __mapLatLng(rest);
         const gs = __mapGroupsOf(rest);
         gs.forEach(g => {
           if (!(g.key in groupLabel)) { groupOrder.push(g.key); groupLabel[g.key] = g.label; groupCount[g.key] = 0; }
           groupCount[g.key]++;
         });
         if (!gs.length && ll) unassigned++;
-        if (ll) plotted.push({ restId, rest, ll, groupKeys: gs.map(g => g.key) });
+        if (ll) plotted.push({ restId, rest, ll, groupKeys: gs.map(g => g.key), siteKey: sk, siteMembers: site ? site.members : [restId] });
         else missing.push({ restId, rest });
       });
       const colors = __mapBuildColors(groupOrder);
@@ -8178,16 +8239,15 @@
 
       const bounds = [];
 
-      // Combo stores (two brands, one building) share an address and therefore
-      // the same lat/lng. Placed at identical coordinates they stack on one
-      // pixel and only the top pin is visible or clickable. Detect any group of
-      // 2+ stores at the same point and fan them out in a small ring so each
-      // gets its own pin. The offset is a few meters of latitude/longitude -
-      // large enough to separate the pins, small enough to still read as "same
+      // Combo stores (two brands, one building) share a SITE. Placed at the
+      // same coordinate they'd stack on one pixel with only the top pin
+      // clickable. Group by site key (normalized address) and fan each group
+      // out in a small ring so every store gets its own pin. The offset is a
+      // few meters - enough to separate, small enough to still read as "same
       // spot". bounds still uses the true coordinate so fit/zoom is unaffected.
       const __coincat = {};
       plotted.forEach((p) => {
-        const k = p.ll[0].toFixed(6) + "," + p.ll[1].toFixed(6);
+        const k = p.siteKey || (p.ll[0].toFixed(6) + "," + p.ll[1].toFixed(6));
         (__coincat[k] = __coincat[k] || []).push(p);
       });
       const __spreadIndex = new Map();   // restId -> {i, n} within its cluster
@@ -8209,7 +8269,7 @@
         return [ll[0] + dLat * Math.sin(ang), ll[1] + dLng * Math.cos(ang)];
       }
 
-      plotted.forEach(({ restId, rest, ll, groupKeys }) => {
+      plotted.forEach(({ restId, rest, ll, groupKeys, siteMembers }) => {
         const keys = (groupKeys || []).filter(Boolean);
         const isAssigned = keys.length > 0;
         // One pin per store. Several groups -> a split pin carrying each colour.
@@ -8218,9 +8278,10 @@
         const marker = L.marker(pos, { icon: __mapPinIcon(cols, !isAssigned), riseOnHover: true, bubblingMouseEvents: false }).addTo(map);
         if (!__isTouchDevice) {
           const who = keys.length ? " — " + keys.map(k => groupLabel[k]).filter(Boolean).join(" + ") : "";
-          marker.bindTooltip((rest.storeName || "Store") + who, { direction: "top", offset: [0, -30] });
+          const sibs = (siteMembers || []).length > 1 ? ` (+${siteMembers.length - 1} at this site)` : "";
+          marker.bindTooltip((rest.storeName || "Store") + who + sibs, { direction: "top", offset: [0, -30] });
         }
-        marker.bindPopup(__mapPopupHtml(restId, rest), { maxWidth: 280, autoPan: true, autoPanPadding: [40, 60] });
+        marker.bindPopup(__mapPopupHtml(restId, rest, siteMembers), { maxWidth: 300, autoPan: true, autoPanPadding: [40, 60] });
         // Registered under every group so legend filtering still highlights it.
         __mapMarkers.push({ marker, restId, groupKey: keys[0] || "__unassigned__", groupKeys: keys });
         bounds.push(ll);   // true coordinate keeps fit/zoom correct
