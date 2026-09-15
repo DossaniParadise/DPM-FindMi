@@ -868,6 +868,38 @@
       .copy-all-btn { font-size: 0.8rem; padding: 6px 12px; min-height: 34px; }
     }
 
+    /* Click-to-copy fields (view mode): the whole field is clickable. Subtle
+       hover, bolder flash on click, and a toast confirms what was copied. */
+    .copy-field {
+      cursor: pointer; border-radius: 6px; padding: 2px 4px; margin: -2px -4px;
+      transition: background-color .12s ease, box-shadow .12s ease;
+      position: relative;
+    }
+    .copy-field:hover { background-color: #eef2ff; box-shadow: inset 0 0 0 1px #c7d2fe; }
+    .copy-field:active { background-color: #e0e7ff; }
+    .copy-field::after {
+      content: "Copy"; position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+      font-size: 0.6rem; font-weight: 700; color: #6366f1; opacity: 0;
+      transition: opacity .12s ease; pointer-events: none; letter-spacing: .03em;
+    }
+    .copy-field:hover::after { opacity: 0.7; }
+    @keyframes copyFlash {
+      0% { background-color: #a5b4fc; }
+      100% { background-color: transparent; }
+    }
+    .copy-field.copied-flash { animation: copyFlash .6s ease; }
+    @media (max-width: 768px) { .copy-field::after { display: none; } }
+
+    /* Copy toast */
+    #copyToast {
+      position: fixed; left: 50%; bottom: 88px; transform: translateX(-50%) translateY(12px);
+      background: #111827; color: #fff; padding: 9px 16px; border-radius: 999px;
+      font-size: 0.82rem; font-weight: 600; z-index: 4000; opacity: 0;
+      pointer-events: none; transition: opacity .18s ease, transform .18s ease;
+      box-shadow: 0 6px 20px rgba(0,0,0,.28);
+    }
+    #copyToast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
     .copy-btn-mini {
       background: none;
       border: 1px solid var(--neutral-border);
@@ -1963,7 +1995,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v7.4 Vercel API</span>
+      <span>v7.5 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -2654,7 +2686,7 @@
        shared admins/appMeta node; every client compares on each load, and a
        stale client force-reloads itself with a cache-busting ?v= URL. This is
        the same approach FixMi uses so the two apps stay consistent. */
-    const APP_VERSION = "7.4";
+    const APP_VERSION = "7.5";
     let _versionPublished = false;
 
     function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
@@ -4452,21 +4484,24 @@
                   ${rest.managers.map(m => `
                     <div class="mgr-row">
                       <span class="mgr-ident"><span class="mgr-name">${escapeHtml(m.name || '')}</span><span class="mgr-title">${escapeHtml(m.title || '')}</span></span>
-                      ${m.phone ? `<span class="mgr-phone-wrap"><a href="tel:${escapeHtml((m.phone||'').replace(/[^0-9]/g,''))}" class="mgr-phone">${escapeHtml(m.phone)}</a><button class="copy-btn-mini copy-keep" onclick="event.stopPropagation(); copyTextToClipboard(this.getAttribute('data-text'), this)" data-text="${escapeHtml(m.phone)}">📋</button></span>` : ''}
+                      ${m.phone ? `<span class="mgr-phone-wrap copy-field" onmousedown="event.stopPropagation();" onclick="event.stopPropagation(); copyField(this, this.getAttribute('data-copy'), '${escapeHtml((m.name||'Manager').replace(/'/g,''))} phone')" data-copy="${escapeHtml(m.phone)}"><span class="mgr-phone">${escapeHtml(m.phone)}</span></span>` : ''}
                     </div>`).join('')}
                 </div>` : ''}
-              <div class="card-detail" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                <span style="overflow: hidden; text-overflow: ellipsis;">📍 Address: ${escapeHtml(rest.address || 'No address')}</span>
-                ${rest.address ? `<button class="copy-btn-mini copy-keep" onclick="copyTextToClipboard(this.getAttribute('data-text'), this)" data-text="${escapeHtml(rest.address)}">📋 Copy</button>` : ''}
-              </div>
-              <div class="card-detail" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                <span>☎ Phone: ${escapeHtml(formatPhoneNumber(rest.phone) || 'No phone')}</span>
-                ${rest.phone ? `<button class="copy-btn-mini copy-keep" onclick="copyTextToClipboard(this.getAttribute('data-text'), this)" data-text="${escapeHtml(formatPhoneNumber(rest.phone))}">📋 Copy</button>` : ''}
-              </div>
-              <div class="card-detail" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                <span style="overflow: hidden; text-overflow: ellipsis;">✉ Email: ${escapeHtml(rest.email || 'No email')}</span>
-                ${rest.email ? `<button class="copy-btn-mini copy-keep" onclick="copyTextToClipboard(this.getAttribute('data-text'), this)" data-text="${escapeHtml(rest.email)}">📋 Copy</button>` : ''}
-              </div>
+              ${rest.address ? `
+                <div class="card-detail copy-field" onmousedown="event.stopPropagation();" onclick="event.stopPropagation(); copyField(this, this.getAttribute('data-copy'), 'Address')" data-copy="${escapeHtml(rest.address)}" style="width: 100%;">
+                  <span style="overflow: hidden; text-overflow: ellipsis; display:block;">📍 Address: ${escapeHtml(rest.address)}</span>
+                </div>` : `
+                <div class="card-detail" style="width:100%;"><span>📍 Address: No address</span></div>`}
+              ${rest.phone ? `
+                <div class="card-detail copy-field" onmousedown="event.stopPropagation();" onclick="event.stopPropagation(); copyField(this, this.getAttribute('data-copy'), 'Phone number')" data-copy="${escapeHtml(formatPhoneNumber(rest.phone))}" style="width: 100%;">
+                  <span>☎ Phone: ${escapeHtml(formatPhoneNumber(rest.phone))}</span>
+                </div>` : `
+                <div class="card-detail" style="width:100%;"><span>☎ Phone: No phone</span></div>`}
+              ${rest.email ? `
+                <div class="card-detail copy-field" onmousedown="event.stopPropagation();" onclick="event.stopPropagation(); copyField(this, this.getAttribute('data-copy'), 'Email')" data-copy="${escapeHtml(rest.email)}" style="width: 100%;">
+                  <span style="overflow: hidden; text-overflow: ellipsis; display:block;">✉ Email: ${escapeHtml(rest.email)}</span>
+                </div>` : `
+                <div class="card-detail" style="width:100%;"><span>✉ Email: No email</span></div>`}
               ${(rest.latitude || rest.longitude) ? `
                 <div class="card-detail js-gps-row" style="color: #0369a1; font-weight: 550; display: flex; align-items: center; justify-content: space-between; margin-top: 2px; width: 100%;">
                   <span style="overflow: hidden; text-overflow: ellipsis;">🌐 GPS: ${escapeHtml(rest.latitude || 'N/A')}, ${escapeHtml(rest.longitude || 'N/A')}</span>
@@ -7186,6 +7221,48 @@
         lines.push("Map: https://www.google.com/maps/search/?api=1&query=" + q);
       }
       copyTextToClipboard(lines.join("\n"), btnElement, "Copied all");
+    }
+
+    // Low-level clipboard write with iframe fallback. Returns a promise-ish.
+    function writeClipboard(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
+      }
+      return Promise.resolve(fallbackCopy(text));
+    }
+    function fallbackCopy(text) {
+      const ta = document.createElement("textarea");
+      ta.value = text; ta.style.position = "fixed"; ta.style.left = "-999999px";
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      try { document.execCommand("copy"); } catch (e) {}
+      document.body.removeChild(ta);
+    }
+
+    // Toast: brief "X copied to clipboard" confirmation.
+    let _toastTimer = null;
+    function showToast(msg) {
+      let t = document.getElementById("copyToast");
+      if (!t) {
+        t = document.createElement("div");
+        t.id = "copyToast";
+        document.body.appendChild(t);
+      }
+      t.textContent = "✓ " + msg;
+      t.classList.add("show");
+      clearTimeout(_toastTimer);
+      _toastTimer = setTimeout(() => t.classList.remove("show"), 1600);
+    }
+
+    // Click-to-copy a whole field. `label` names what was copied for the toast.
+    function copyField(el, text, label) {
+      if (!text) return;
+      writeClipboard(text);
+      showToast((label || "Value") + " copied to clipboard");
+      // Bolder click flash on the field itself.
+      el.classList.remove("copied-flash");
+      void el.offsetWidth;              // restart the animation
+      el.classList.add("copied-flash");
+      setTimeout(() => el.classList.remove("copied-flash"), 600);
     }
 
     function copyTextToClipboard(text, btnElement, label = 'Copied') {
