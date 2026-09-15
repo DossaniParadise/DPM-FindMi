@@ -671,7 +671,14 @@
       grid-auto-rows: max-content;
       gap: 6px !important;
       align-content: start;
+      /* Tiles size to their OWN content - an open tile no longer inflates
+         its neighbors into tall empty boxes. dense backfills the gap left
+         when the open tile jumps to its own full-width row. */
+      align-items: start;
+      grid-auto-flow: dense;
     }
+    /* The open store becomes a full-width spotlight panel. */
+    #restaurantsList .card.expanded { grid-column: 1 / -1; }
 
     .column-header {
       padding: 6px 10px;
@@ -904,6 +911,25 @@
       background: #fffbeb !important;
       border-color: #f59e0b !important;
       box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.28), var(--shadow-sm) !important;
+    }
+
+    /* Detail sections inside a store tile. Stacked on narrow screens; inside
+       an expanded (full-width) tile on a wide monitor they sit side by side. */
+    .cf-sections { display: grid; grid-template-columns: 1fr; gap: 2px 20px; }
+    .cf-section { min-width: 0; }
+    .cf-section-title { display: none; }
+    @media (min-width: 900px) {
+      #restaurantsList .card.expanded .cf-sections {
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 4px 28px;
+      }
+      #restaurantsList .card.expanded .cf-section-title {
+        display: block; font-size: 0.62rem; font-weight: 800; letter-spacing: .08em;
+        text-transform: uppercase; color: #94a3b8; margin: 4px 0 3px 6px;
+      }
+      /* Each section's rows are a tidy vertical stack. */
+      #restaurantsList .card.expanded .cf-section { border-left: 2px solid #eef1f7; padding-left: 4px; }
+      #restaurantsList .card.expanded .cf-section:first-child { border-left: none; padding-left: 0; }
     }
 
     /* Copy toast */
@@ -2015,7 +2041,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v8.4 Vercel API</span>
+      <span>v8.5 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -2706,7 +2732,7 @@
        shared admins/appMeta node; every client compares on each load, and a
        stale client force-reloads itself with a cache-busting ?v= URL. This is
        the same approach FixMi uses so the two apps stay consistent. */
-    const APP_VERSION = "8.4";
+    const APP_VERSION = "8.5";
     let _versionPublished = false;
 
     function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
@@ -4446,7 +4472,7 @@
           ? `<span class="edit-only incomplete-pill" title="${missingTitle}">⚠ ${missing.length === 1 ? escapeHtml(missing[0]) : missing.length + " missing"}</span>` : "";
 
         const card = document.createElement("div");
-        card.className = "card" + (missing.length ? " card-incomplete" : "");
+        card.className = "card" + (missing.length ? " card-incomplete" : "") + (isExpanded ? " expanded" : "");
         card.setAttribute("draggable", "true");
         card.setAttribute("data-id", restId);
         card.setAttribute("data-type", "restaurant");
@@ -4492,16 +4518,19 @@
                 <a class="m-act m-act-nav ${mNav ? '' : 'm-act-off'}" ${mNav ? 'href="' + mNav + '" target="_blank" rel="noopener"' : ''} onclick="event.stopPropagation();" draggable="false" aria-label="Navigate to store"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg><span>Go</span></a>
               </div>
               ${(() => {
-                // ALL detail rows are built into one list so the "Open map" badge
-                // can ride inline on whatever the final row is - no floating
-                // button, no reserved space, a tighter tile.
-                const rows = [];
+                // Rows are grouped into three sections. On a narrow/vertical
+                // screen they stack; on a wide monitor the open tile spans the
+                // grid and the sections sit side by side, so neighbors stay
+                // compact and the width is actually used.
+                const secStore = [], secMgr = [], secTeam = [];
                 const entName = (rest.assignedEntityId && entities[rest.assignedEntityId]) ? entities[rest.assignedEntityId].name : (rest.entity || "");
-                rows.push(cfRow("🏢", "Entity", entName, "Entity"));
+                secStore.push(cfRow("🏢", "Entity", entName, "Entity"));
+                secStore.push(cfRow("📍", "Address", rest.address, "Address"));
+                secStore.push(cfRow("☎", "Phone", formatPhoneNumber(rest.phone) || rest.phone, "Phone number"));
+                secStore.push(cfRow("✉", "Email", rest.email, "Email"));
 
-                // ONE manager list. Source: imported `managers`; legacy Mgr/AGM as a
-                // fallback for stores not yet imported. GM > AGM > In Training > Other.
-                // Name and phone are SEPARATE lines.
+                // ONE manager list: imported `managers`, legacy Mgr/AGM as fallback.
+                // GM > AGM > In Training > Other; name and phone on separate lines.
                 let mgrs = (Array.isArray(rest.managers) && rest.managers.length) ? rest.managers.slice() : [];
                 if (!mgrs.length) {
                   if (rest.storeManager) mgrs.push({ name: rest.storeManager, title: "GM", phone: rest.managerCell });
@@ -4510,34 +4539,32 @@
                 const rank = { "GM": 0, "AGM": 1, "In Training": 2 };
                 mgrs.sort((a, b) => ((rank[a.title] ?? 3) - (rank[b.title] ?? 3)) || (a.name || "").localeCompare(b.name || ""));
                 mgrs.forEach(m => {
-                  rows.push(cfRow("👤", m.title || "Mgr", m.name, (m.title || "Manager") + " name"));
+                  secMgr.push(cfRow("👤", m.title || "Mgr", m.name, (m.title || "Manager") + " name"));
                   const ph = m.phone ? (formatPhoneNumber(m.phone) || m.phone) : "";
-                  if (ph) rows.push(cfRow("☎", "Cell", ph, (m.title || "Manager") + " phone"));
+                  if (ph) secMgr.push(cfRow("☎", "Cell", ph, (m.title || "Manager") + " phone"));
                 });
 
-                rows.push(cfRow("📍", "Address", rest.address, "Address"));
-                rows.push(cfRow("☎", "Phone", formatPhoneNumber(rest.phone) || rest.phone, "Phone number"));
-                rows.push(cfRow("✉", "Email", rest.email, "Email"));
-
-                // Relationships as the same clean rows.
                 const rmCoach = (cid) => `<button class="cf-remove edit-only" onclick="event.stopPropagation(); removeCoachFromStore('${restId}', '${cid}')" title="Remove this district manager">✕</button>`;
                 const rmTech  = (tid) => `<button class="cf-remove edit-only" onclick="event.stopPropagation(); removeTechFromStore('${restId}', '${tid}')" title="Remove this tech">✕</button>`;
-                rows.push(cfRow("🎯", "Director", dirName, "Director name"));
+                secTeam.push(cfRow("🎯", "Director", dirName, "Director name"));
                 const cids = getCoachIds(rest);
                 if (cids.length) {
-                  cids.forEach(cid => { if (areaCoaches[cid]) rows.push(cfRow("🧭", "DM", areaCoaches[cid].name, "District manager name", rmCoach(cid))); });
+                  cids.forEach(cid => { if (areaCoaches[cid]) secTeam.push(cfRow("🧭", "DM", areaCoaches[cid].name, "District manager name", rmCoach(cid))); });
                 } else {
-                  rows.push(`<div class="card-detail cf-row" style="color:#94a3b8;"><span class="cf-icon">🧭</span><span class="cf-label">DM</span><span class="cf-value" style="color:#94a3b8;">${dirName ? "Direct report to " + escapeHtml(dirName) : "Unassigned"}</span></div>`);
+                  secTeam.push(`<div class="card-detail cf-row" style="color:#94a3b8;"><span class="cf-icon">🧭</span><span class="cf-label">DM</span><span class="cf-value" style="color:#94a3b8;">${dirName ? "Direct report to " + escapeHtml(dirName) : "Unassigned"}</span></div>`);
                 }
-                getTechIds(rest).forEach(tid => { if (repairTechnicians[tid]) rows.push(cfRow("🛠", "Tech", repairTechnicians[tid].name, "Repair tech name", rmTech(tid))); });
+                getTechIds(rest).forEach(tid => { if (repairTechnicians[tid]) secTeam.push(cfRow("🛠", "Tech", repairTechnicians[tid].name, "Repair tech name", rmTech(tid))); });
 
-                // "Open map" badge, inline at the right edge of the LAST row.
-                const list = rows.filter(Boolean);
-                if (rest.address && list.length) {
+                // "Open map" badge rides inline on the very last row.
+                const sections = [["Store", secStore], ["Managers", secMgr], ["Team", secTeam]]
+                  .map(([t, arr]) => [t, arr.filter(Boolean)]).filter(([t, arr]) => arr.length);
+                if (rest.address && sections.length) {
+                  const lastArr = sections[sections.length - 1][1];
                   const badge = `<a class="open-map-badge" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(rest.address)}" target="_blank" rel="noopener" onmousedown="event.stopPropagation();" onclick="event.stopPropagation();" draggable="false">Open map ↗</a>`;
-                  list[list.length - 1] = list[list.length - 1].replace(/<\/div>\s*$/, badge + "</div>");
+                  lastArr[lastArr.length - 1] = lastArr[lastArr.length - 1].replace(/<\/div>\s*$/, badge + "</div>");
                 }
-                return list.join("");
+                return `<div class="cf-sections">` + sections.map(([t, arr]) =>
+                  `<div class="cf-section"><div class="cf-section-title">${t}</div>${arr.join("")}</div>`).join("") + `</div>`;
               })()}
             </div>
           `;
