@@ -843,22 +843,6 @@
     .bimode-tab { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
     .bimode-tab.bimode-on { background: #251d7f; color: #fff; border-color: #251d7f; }
 
-    /* Store managers list (from the GM/AGM phone import). Neat rows: name +
-       title on the left, tappable/copyable phone on the right. */
-    .mgr-list { margin: 4px 0; border: 1px solid #eef1f7; border-radius: 8px; overflow: hidden; }
-    .mgr-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 9px; font-size: 0.82rem; }
-    .mgr-row:nth-child(even) { background: #f8fafc; }
-    .mgr-ident { display: flex; flex-direction: column; min-width: 0; }
-    .mgr-name { font-weight: 600; color: #1e293b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .mgr-title { font-size: 0.68rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: .02em; }
-    .mgr-phone-wrap { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
-    .mgr-phone { font-family: monospace; font-size: 0.8rem; color: #251d7f; text-decoration: none; font-weight: 600; }
-    @media (max-width: 768px) {
-      .mgr-row { padding: 9px 10px; font-size: 0.9rem; }
-      .mgr-phone { font-size: 0.9rem; }
-      .mgr-title { font-size: 0.72rem; }
-    }
-
     .copy-all-btn {
       font-size: 0.68rem; font-weight: 600; padding: 3px 8px;
       background: #eef0fb; color: #251d7f; border: 1px solid #d6dbf5;
@@ -873,35 +857,27 @@
     /* Click-to-copy fields (view mode): the whole field is clickable. Subtle
        hover, bolder flash on click, and a toast confirms what was copied. */
     .copy-field {
-      cursor: pointer; border-radius: 6px; padding: 2px 4px; margin: -2px -4px;
-      transition: background-color .12s ease, box-shadow .12s ease;
-      position: relative;
+      cursor: pointer; border-radius: 5px; padding: 2px 6px;
+      transition: background-color .12s ease;
     }
-    .copy-field:hover { background-color: #eef2ff; box-shadow: inset 0 0 0 1px #c7d2fe; }
+    .copy-field:hover { background-color: #eef2ff; }
     .copy-field:active { background-color: #e0e7ff; }
-    .copy-field::after {
-      content: "Copy"; position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
-      font-size: 0.6rem; font-weight: 700; color: #6366f1; opacity: 0;
-      transition: opacity .12s ease; pointer-events: none; letter-spacing: .03em;
-    }
-    .copy-field:hover::after { opacity: 0.7; }
     @keyframes copyFlash {
       0% { background-color: #a5b4fc; }
       100% { background-color: transparent; }
     }
     .copy-field.copied-flash { animation: copyFlash .6s ease; }
-    @media (max-width: 768px) { .copy-field::after { display: none; } }
 
     /* Standardized field rows: one font, one layout, for store AND people cards. */
     .cf-row {
-      display: flex; align-items: center; gap: 6px; width: 100%;
-      font-size: 0.8rem; font-weight: 500; color: #334155; line-height: 1.45;
-      min-width: 0;
+      display: flex; align-items: center; gap: 6px; width: 100%; box-sizing: border-box;
+      font-size: 0.8rem; font-weight: 500; color: #334155; line-height: 1.4;
+      min-width: 0; margin: 1px 0;
     }
     .cf-icon { flex-shrink: 0; width: 1.2em; text-align: center; opacity: .85; }
     .cf-label { flex-shrink: 0; color: #64748b; font-weight: 600; }
     .cf-label::after { content: ":"; }
-    .cf-value { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #1e293b; }
+    .cf-value { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #1e293b; }
     .cf-row .cf-remove {
       margin-left: auto; flex-shrink: 0; background: none; border: none; cursor: pointer;
       color: #94a3b8; font-weight: 700; padding: 0 4px; line-height: 1;
@@ -2052,7 +2028,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v8.2 Vercel API</span>
+      <span>v8.3 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -2743,7 +2719,7 @@
        shared admins/appMeta node; every client compares on each load, and a
        stale client force-reloads itself with a cache-busting ?v= URL. This is
        the same approach FixMi uses so the two apps stay consistent. */
-    const APP_VERSION = "8.2";
+    const APP_VERSION = "8.3";
     let _versionPublished = false;
 
     function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
@@ -4489,9 +4465,9 @@
         // Precompute mobile action targets (avoid nested backticks in template).
         const mTel = rest.phone ? String(rest.phone).replace(/[^0-9+]/g, "") : "";
         const mMail = rest.email || "";
-        const mNav = (rest.latitude && rest.longitude)
-          ? "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(rest.latitude + "," + rest.longitude)
-          : (rest.address ? "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(rest.address) : "");
+        // Navigate by the STREET ADDRESS on file (what a person would type into
+        // Maps), not the GPS point. Coordinates stay internal for the map screen.
+        const mNav = rest.address ? "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(rest.address) : "";
 
         if (isExpanded) {
           card.innerHTML = `
@@ -4523,23 +4499,29 @@
                 const entName = (rest.assignedEntityId && entities[rest.assignedEntityId]) ? entities[rest.assignedEntityId].name : (rest.entity || "");
                 let out = "";
                 out += cfRow("🏢", "Entity", entName, "Entity");
-                out += cfRow("👤", "Mgr", rest.storeManager, "Manager name");
-                out += cfRow("👤", "AGM", rest.assistantManager, "AGM name");
+                // ONE manager list, rendered as the same inline rows as every
+                // other field. Source: the imported `managers` array; for stores
+                // not yet imported, fall back to the legacy Mgr/AGM fields so
+                // nobody disappears. Sorted GM > AGM > In Training > Other.
+                let mgrs = (Array.isArray(rest.managers) && rest.managers.length) ? rest.managers.slice() : [];
+                if (!mgrs.length) {
+                  if (rest.storeManager) mgrs.push({ name: rest.storeManager, title: "GM", phone: rest.managerCell });
+                  if (rest.assistantManager) mgrs.push({ name: rest.assistantManager, title: "AGM", phone: rest.assistantManagerCell });
+                }
+                const rank = { "GM": 0, "AGM": 1, "In Training": 2 };
+                mgrs.sort((a, b) => ((rank[a.title] ?? 3) - (rank[b.title] ?? 3)) || (a.name || "").localeCompare(b.name || ""));
+                mgrs.forEach(m => {
+                  const ph = m.phone ? (formatPhoneNumber(m.phone) || m.phone) : "";
+                  const val = [m.name, ph].filter(Boolean).join("  ·  ");
+                  out += cfRow("👤", m.title || "Mgr", val, (m.title || "Manager") + " contact");
+                });
                 return out;
               })()}
-              ${(Array.isArray(rest.managers) && rest.managers.length) ? `
-                <div class="mgr-list">
-                  ${rest.managers.map(m => `
-                    <div class="mgr-row">
-                      <span class="mgr-ident copy-field" onmousedown="event.stopPropagation();" onclick="event.stopPropagation(); copyField(this, this.getAttribute('data-copy'), 'Manager name')" data-copy="${escapeHtml(m.name || '')}"><span class="mgr-name">${escapeHtml(m.name || '')}</span><span class="mgr-title">${escapeHtml(m.title || '')}</span></span>
-                      ${m.phone ? `<span class="mgr-phone-wrap copy-field" onmousedown="event.stopPropagation();" onclick="event.stopPropagation(); copyField(this, this.getAttribute('data-copy'), 'Phone number')" data-copy="${escapeHtml(m.phone)}"><span class="mgr-phone">${escapeHtml(m.phone)}</span></span>` : ''}
-                    </div>`).join('')}
-                </div>` : ''}
               ${cfRow("📍", "Address", rest.address, "Address")}
               ${cfRow("☎", "Phone", formatPhoneNumber(rest.phone) || rest.phone, "Phone number")}
               ${cfRow("✉", "Email", rest.email, "Email")}
-              ${((rest.latitude && rest.longitude) || rest.address) ? `
-                <a class="map-corner-btn" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((rest.latitude && rest.longitude) ? (rest.latitude + ',' + rest.longitude) : rest.address)}" target="_blank" rel="noopener" onmousedown="event.stopPropagation();" onclick="event.stopPropagation();" draggable="false" title="Open in Maps" aria-label="Open in Maps">🗺️</a>` : ''}
+              ${rest.address ? `
+                <a class="map-corner-btn" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(rest.address)}" target="_blank" rel="noopener" onmousedown="event.stopPropagation();" onclick="event.stopPropagation();" draggable="false" title="Open in Maps" aria-label="Open in Maps">🗺️</a>` : ''}
               ${(() => {
                 // Relationships as the same clean rows (no colored pills).
                 const rmCoach = (cid) => `<button class="cf-remove edit-only" onclick="event.stopPropagation(); removeCoachFromStore('${restId}', '${cid}')" title="Remove this district manager">✕</button>`;
