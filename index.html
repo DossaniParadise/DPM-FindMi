@@ -764,8 +764,10 @@
       pointer-events: none;
     }
 
-    /* Custom classes to re-enable button and ink clicking inside the cards */
-    .card button, .card .card-actions, .card a {
+    /* Custom classes to re-enable button and ink clicking inside the cards.
+       .copy-field is included so the click-to-copy fields get hover + click
+       (they're divs, not buttons, so they'd otherwise inherit none). */
+    .card button, .card .card-actions, .card a, .card .copy-field {
       pointer-events: auto !important;
     }
 
@@ -1995,7 +1997,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v7.5 Vercel API</span>
+      <span>v7.6 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -2686,7 +2688,7 @@
        shared admins/appMeta node; every client compares on each load, and a
        stale client force-reloads itself with a cache-busting ?v= URL. This is
        the same approach FixMi uses so the two apps stay consistent. */
-    const APP_VERSION = "7.5";
+    const APP_VERSION = "7.6";
     let _versionPublished = false;
 
     function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
