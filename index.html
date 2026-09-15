@@ -911,6 +911,38 @@
       .cf-row { font-size: 0.9rem; padding: 5px 4px; }
     }
 
+    /* Map button pinned to the tile's bottom-right corner. */
+    #restaurantsList .card { position: relative; }
+    .map-corner-btn {
+      position: absolute; right: 8px; bottom: 8px;
+      width: 34px; height: 34px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      background: #eff6ff; border: 1px solid #bfdbfe; text-decoration: none;
+      font-size: 1.05rem; line-height: 1; cursor: pointer;
+      box-shadow: 0 1px 3px rgba(15,23,42,.10);
+      transition: transform .12s ease, background .12s ease;
+      pointer-events: auto !important;
+    }
+    .map-corner-btn:hover { background: #dbeafe; transform: scale(1.08); }
+    /* Leave room so the last row doesn't sit under the button. */
+    #restaurantsList .card .card-details-block { padding-bottom: 30px; }
+    @media (max-width: 768px) {
+      .map-corner-btn { width: 44px; height: 44px; font-size: 1.3rem; right: 10px; bottom: 10px; }
+      #restaurantsList .card .card-details-block { padding-bottom: 40px; }
+    }
+
+    /* Mobile: the "Filtered by X / Show All" bar must be an easy tap target. */
+    @media (max-width: 768px) {
+      .filter-message-bar {
+        padding: 10px 12px; font-size: 0.9rem; gap: 10px; border-radius: 10px;
+        margin: 6px 4px 8px; background: #eef0fb; border: 1px solid #d6dbf5;
+      }
+      .clear-filter-btn {
+        text-decoration: none; background: #251d7f; color: #fff;
+        padding: 8px 14px; border-radius: 999px; min-height: 36px; flex-shrink: 0;
+      }
+    }
+
     /* Copy toast */
     #copyToast {
       position: fixed; left: 50%; bottom: 88px; transform: translateX(-50%) translateY(12px);
@@ -1066,6 +1098,8 @@
       .m-act-call { background: #251d7f; color: #fff; }
       .m-act-mail { background: #eef0fb; color: #251d7f; border: 1px solid #d6dbf5; }
       .m-act-nav  { background: #f59e0b; color: #fff; }
+      /* "Stores (N)" on people cards: jumps to the pre-filtered Stores tab. */
+      .m-act-stores { background: #0f766e; color: #fff; cursor: pointer; }
       /* Missing data: visible but inert, so the row stays a stable grid. */
       .m-act-off { background: #f1f5f9; color: #cbd5e1; pointer-events: none; }
       .m-act-off:active { transform: none; }
@@ -1230,9 +1264,11 @@
     }
     @media (max-width: 768px) {
       /* Roomier, tappable filters on mobile - the HEB-style quick filters. */
-      .store-filter-row { gap: 8px; flex-wrap: wrap; }
+      .store-filter-row { gap: 6px; flex-wrap: wrap; }
+      /* Two per row instead of three stacked bars, so the store list is
+         visible sooner on a phone. Still comfortably tappable. */
       .store-filter-sel {
-        flex: 1 1 100%; padding: 11px 12px; font-size: 0.9rem; border-radius: 10px;
+        flex: 1 1 calc(50% - 3px); min-width: 0; padding: 10px 10px; font-size: 0.85rem; border-radius: 10px;
         background: #f8fafc; font-weight: 600; color: #251d7f;
       }
     }
@@ -2016,7 +2052,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v7.8 Vercel API</span>
+      <span>v7.9 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -2318,12 +2354,12 @@
   <nav class="m-tabs" id="mTabs" aria-label="Sections">
     <button class="m-tab" data-tab="vp" onclick="mShow('vp')" aria-label="Support Staff">
       <span class="m-tab-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 6.5a3 3 0 0 1 0 6"/><path d="M17.5 14.5a5.5 5.5 0 0 1 3 5.5"/></svg><i class="m-dot" id="mnVp"></i></span>Staff</button>
-    <button class="m-tab" data-tab="director" onclick="mShow('director')" aria-label="Directors of Operations">
-      <span class="m-tab-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/><path d="M9 13.5 12 17l3-3.5"/></svg><i class="m-dot" id="mnDirector"></i></span>DO</button>
+    <button class="m-tab" data-tab="director" onclick="mShow('director')" aria-label="Directors">
+      <span class="m-tab-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/><path d="M9 13.5 12 17l3-3.5"/></svg><i class="m-dot" id="mnDirector"></i></span>Directors</button>
     <button class="m-tab" data-tab="technician" onclick="mShow('technician')" aria-label="Repair technicians">
       <span class="m-tab-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 3.5a4.5 4.5 0 0 0-5.9 5.7L3.4 15.4a2 2 0 0 0 2.8 2.8l6.2-6.2a4.5 4.5 0 0 0 5.7-5.9l-2.7 2.7-2.3-.6-.6-2.3 2.7-2.7Z"/></svg><i class="m-dot" id="mnTech"></i></span>Techs</button>
     <button class="m-tab" data-tab="coach" onclick="mShow('coach')" aria-label="Area coaches">
-      <span class="m-tab-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3.5h6v3H9z"/><path d="M8.5 11h7M8.5 15h4.5"/></svg><i class="m-dot" id="mnCoach"></i></span>Coaches</button>
+      <span class="m-tab-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3.5h6v3H9z"/><path d="M8.5 11h7M8.5 15h4.5"/></svg><i class="m-dot" id="mnCoach"></i></span>DMs</button>
     <button class="m-tab" data-tab="entity" onclick="mShow('entity')" aria-label="Legal entities">
       <span class="m-tab-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21V6l7-3 7 3v15"/><path d="M4 21h16"/><path d="M9 9h1.5M13.5 9H15M9 13h1.5M13.5 13H15M9 17h6"/></svg><i class="m-dot" id="mnEntity"></i></span>Entities</button>
     <button class="m-tab on" data-tab="store" onclick="mShow('store')" aria-label="Stores">
@@ -2707,7 +2743,7 @@
        shared admins/appMeta node; every client compares on each load, and a
        stale client force-reloads itself with a cache-busting ?v= URL. This is
        the same approach FixMi uses so the two apps stay consistent. */
-    const APP_VERSION = "7.8";
+    const APP_VERSION = "7.9";
     let _versionPublished = false;
 
     function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
@@ -3469,12 +3505,35 @@
     }
 
     // Mobile action row for a person (call + email). Hidden on desktop via CSS.
-    function mPersonActions(person) {
+    // Mobile: jump to the Stores tab. The person is already selected (tapping
+    // their card set the filter), so the store list is pre-filtered to them.
+    function mJumpToStores() {
+      mShow("store");
+      // Nudge the filter bar into view so the user sees what's applied.
+      const bar = document.getElementById("restaurantFilterBar");
+      if (bar && bar.scrollIntoView) { try { bar.scrollIntoView({ block: "start" }); } catch (e) {} }
+    }
+
+    // Count stores linked to a person, for the mobile "Stores (N)" button.
+    function mStoreCountFor(kind, id) {
+      const ids = Object.keys(restaurants);
+      if (kind === "director") return ids.filter(r => restaurants[r].assignedDirectorId === id).length;
+      if (kind === "coach")    return ids.filter(r => storeHasCoach(restaurants[r], id)).length;
+      if (kind === "tech")     return ids.filter(r => getTechIds(restaurants[r]).indexOf(id) !== -1).length;
+      if (kind === "entity")   return ids.filter(r => { const x = restaurants[r]; return x.assignedEntityId === id || (!x.assignedEntityId && x.entity && entities[id] && x.entity === entities[id].name); }).length;
+      return 0;
+    }
+
+    function mPersonActions(person, storesLink) {
       const tel = person && person.phone ? String(person.phone).replace(/[^0-9+]/g, "") : "";
       const mail = person && person.email ? person.email : "";
+      const storesBtn = (storesLink && storesLink.count > 0)
+        ? `<a class="m-act m-act-stores" onclick="event.stopPropagation(); mJumpToStores();" draggable="false" aria-label="See stores"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9l9-6 9 6v11a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Stores (${storesLink.count})</span></a>`
+        : "";
       return `<div class="m-actions" onmousedown="event.stopPropagation();" onclick="event.stopPropagation();">
         <a class="m-act m-act-call ${tel ? '' : 'm-act-off'}" ${tel ? 'href="tel:' + tel + '"' : ''} onclick="event.stopPropagation();" draggable="false" aria-label="Call"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L14 12l5 2v4a2 2 0 0 1-2 2A15 15 0 0 1 2 6a2 2 0 0 1 2-2z"/></svg><span>Call</span></a>
         <a class="m-act m-act-mail ${mail ? '' : 'm-act-off'}" ${mail ? 'href="mailto:' + escapeHtml(mail) + '"' : ''} onclick="event.stopPropagation();" draggable="false" aria-label="Email"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v14H3z"/><path d="M3 6l9 7 9-7"/></svg><span>Email</span></a>
+        ${storesBtn}
       </div>`;
     }
 
@@ -3808,7 +3867,7 @@
               </div>
             </div>
             <div class="card-details-block" onmousedown="event.stopPropagation();" onclick="event.stopPropagation();" style="pointer-events: auto !important; margin-top: 6px;">
-              ${mPersonActions(dir)}
+              ${mPersonActions(dir, { count: mStoreCountFor('director', dirId) })}
               ${cfRow("✉", "Email", dir.email, "Email")}
               ${cfRow("☎", "Phone", formatPhoneNumber(dir.phone) || dir.phone, "Phone number")}
             </div>
@@ -3866,7 +3925,7 @@
               </div>
             </div>
             <div class="card-details-block" onmousedown="event.stopPropagation();" onclick="event.stopPropagation();" style="pointer-events: auto !important; margin-top: 6px;">
-              ${mPersonActions(tech)}
+              ${mPersonActions(tech, { count: mStoreCountFor('tech', techId) })}
               ${cfRow("✉", "Email", tech.email, "Email")}
               ${cfRow("☎", "Phone", formatPhoneNumber(tech.phone) || tech.phone, "Phone number")}
             </div>
@@ -4005,6 +4064,7 @@
               </div>
             </div>
             <div class="card-details-block" onmousedown="event.stopPropagation();" onclick="event.stopPropagation();" style="pointer-events: auto !important; margin-top: 6px;">
+              ${mPersonActions(ent, { count: mStoreCountFor('entity', entId) })}
               ${cfRow("✉", "Email", ent.email, "Email")}
               ${cfRow("☎", "Phone", formatPhoneNumber(ent.phone) || ent.phone, "Phone number")}
             </div>
@@ -4096,7 +4156,7 @@
               </div>
             </div>
             <div class="card-details-block" onmousedown="event.stopPropagation();" onclick="event.stopPropagation();" style="pointer-events: auto !important; margin-top: 6px;">
-              ${mPersonActions(coach)}
+              ${mPersonActions(coach, { count: mStoreCountFor('coach', coachId) })}
               ${cfRow("✉", "Email", coach.email, "Email")}
               ${cfRow("☎", "Phone", formatPhoneNumber(coach.phone) || coach.phone, "Phone number")}
               <div class="assignment-tags" style="margin-top: 4px;">
@@ -4478,15 +4538,8 @@
               ${cfRow("📍", "Address", rest.address, "Address")}
               ${cfRow("☎", "Phone", formatPhoneNumber(rest.phone) || rest.phone, "Phone number")}
               ${cfRow("✉", "Email", rest.email, "Email")}
-              ${(rest.latitude || rest.longitude) ? `
-                <div class="card-detail js-gps-row" style="color: #0369a1; font-weight: 550; display: flex; align-items: center; justify-content: space-between; margin-top: 2px; width: 100%;">
-                  <span style="overflow: hidden; text-overflow: ellipsis;">🌐 GPS: ${escapeHtml(rest.latitude || 'N/A')}, ${escapeHtml(rest.longitude || 'N/A')}</span>
-                  <div style="display: inline-flex; gap: 4px; flex-shrink: 0; align-items: center;">
-                    <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([rest.latitude, rest.longitude].filter(Boolean).join(','))}" target="_blank" onmousedown="event.stopPropagation();" onclick="event.stopPropagation();" draggable="false" style="color: #1d4ed8; background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 9999px; padding: 2px 8px; font-weight: 600; text-decoration: none; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 4px; transition: background-color 0.2s, color 0.2s; cursor: pointer;">
-                      Open Map ↗
-                    </a>
-                  </div>
-                </div>` : ''}
+              ${((rest.latitude && rest.longitude) || rest.address) ? `
+                <a class="map-corner-btn" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((rest.latitude && rest.longitude) ? (rest.latitude + ',' + rest.longitude) : rest.address)}" target="_blank" rel="noopener" onmousedown="event.stopPropagation();" onclick="event.stopPropagation();" draggable="false" title="Open in Maps" aria-label="Open in Maps">🗺️</a>` : ''}
               ${(() => {
                 // Relationships as the same clean rows (no colored pills).
                 const rmCoach = (cid) => `<button class="cf-remove edit-only" onclick="event.stopPropagation(); removeCoachFromStore('${restId}', '${cid}')" title="Remove this district manager">✕</button>`;
