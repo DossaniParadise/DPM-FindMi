@@ -491,7 +491,10 @@
       padding: 0;
       margin: 0;
       height: 100vh;
+      height: 100dvh;            /* iOS/Android: true visible height, not behind the address bar */
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
       display: flex;
       flex-direction: column;
     }
@@ -600,8 +603,13 @@
       width: 100%;
       max-width: 100%;
       margin: 0;
-      flex: 1;
-      height: calc(100vh - 84px);
+      /* Fill whatever is left after the header and history tray - no
+         hardcoded "100vh - 84px" guess. That guess broke on smaller screens
+         and at browser zoom: the header grew, the panel spilled below the
+         fold, and the last stores (Waskom...) became unreachable. */
+      flex: 1 1 auto;
+      min-height: 0;
+      height: auto;
       overflow: hidden;
       align-items: stretch;
       box-sizing: border-box;
@@ -884,7 +892,11 @@
     .cf-icon { flex-shrink: 0; width: 1.2em; text-align: center; opacity: .85; }
     .cf-label { flex-shrink: 0; color: #64748b; font-weight: 600; }
     .cf-label::after { content: ":"; }
-    .cf-value { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #1e293b; }
+    /* Values wrap onto a second line when long (addresses, emails) instead of
+       truncating - a phone was cutting the zip code off long addresses. */
+    .cf-value { flex: 1 1 auto; min-width: 0; color: #1e293b; white-space: normal; overflow-wrap: anywhere; line-height: 1.35; }
+    .cf-row { align-items: flex-start; }
+    .cf-row .cf-icon, .cf-row .cf-label { padding-top: 1px; }
     .cf-row .cf-remove {
       margin-left: auto; flex-shrink: 0; background: none; border: none; cursor: pointer;
       color: #94a3b8; font-weight: 700; padding: 0 4px; line-height: 1;
@@ -930,6 +942,26 @@
       /* Each section's rows are a tidy vertical stack. */
       #restaurantsList .card.expanded .cf-section { border-left: 2px solid #eef1f7; padding-left: 4px; }
       #restaurantsList .card.expanded .cf-section:first-child { border-left: none; padding-left: 0; }
+    }
+
+    /* Whole tile is the tap target. Chevron replaces the tiny "Expand" word. */
+    #restaurantsList .card, #vpsList .card, #directorsList .card, #coachesList .card, #techniciansList .card, #entitiesList .card {
+      cursor: pointer; -webkit-tap-highlight-color: rgba(37,29,127,0.12);
+    }
+    .tile-chevron {
+      flex-shrink: 0; margin-left: 8px; color: #64748b; font-size: 1.15rem; line-height: 1;
+      font-weight: 700; transition: transform .15s ease;
+    }
+    .card:hover .tile-chevron { color: #251d7f; }
+    @media (max-width: 768px) {
+      /* Store name may wrap instead of truncating on a phone. */
+      #restaurantsList .card-title { white-space: normal !important; max-width: none !important; }
+      #restaurantsList .card-title .font-bold { white-space: normal !important; overflow: visible !important; }
+      .tile-chevron { font-size: 1.4rem; }
+      /* Nudge the smallest labels up so mobile isn't a squint. */
+      .cf-label, .cf-value { font-size: 0.92rem; }
+      .cf-section-title { font-size: 0.7rem; }
+      .staff-ext-badge, .staff-head-badge { font-size: 0.72rem; }
     }
 
     /* Copy toast */
@@ -1702,7 +1734,7 @@
       .dashboard-container {
         gap: 6px;
         padding: 6px;
-        height: calc(100vh - 84px);
+        flex: 1 1 auto; min-height: 0; height: auto;
       }
       .column[data-col="a"], .column[data-col="b"] {
         flex: 0 0 210px;
@@ -1739,7 +1771,8 @@
       /* Header (~56) + floating pill (~62 incl. gap) + safe area. */
       .dashboard-container {
         flex-direction: column;
-        height: calc(100vh - 56px - 58px - env(safe-area-inset-bottom, 0px));
+        flex: 1 1 auto; min-height: 0; height: auto;
+        padding-bottom: calc(58px + env(safe-area-inset-bottom, 0px)); /* clear the fixed tab bar */
         padding: 6px; gap: 0; overflow: hidden;
       }
       .column {
@@ -1831,7 +1864,8 @@
          comfortable column and the list breathes. */
       .dashboard-container {
         flex-direction: column !important;
-        height: calc(100vh - 52px - 58px - env(safe-area-inset-bottom, 0px)) !important;
+        flex: 1 1 auto !important; min-height: 0 !important; height: auto !important;
+        padding-bottom: calc(58px + env(safe-area-inset-bottom, 0px)) !important;
         overflow: hidden !important;
         padding: 6px 0 !important;
         gap: 0 !important;
@@ -2041,7 +2075,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v8.5 Vercel API</span>
+      <span>v8.6 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -2725,6 +2759,12 @@
 
   <script>
     const API_BASE_URL = "https://alignment-api-khaki.vercel.app/api/dpm-alignment";
+    // Touch device? Used to disable mouse-only behaviors (drag-and-drop) so taps work.
+    // Prefer the pointer media query (most reliable), then maxTouchPoints.
+    const __isTouchDevice = (typeof window !== "undefined") && (
+      (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
+      (navigator && navigator.maxTouchPoints > 0)
+    );
 
     /* ---- stale-client protection (mirrors DPM FixMi) ----
        Browsers cache the HTML, so different devices can run different builds and
@@ -2732,7 +2772,7 @@
        shared admins/appMeta node; every client compares on each load, and a
        stale client force-reloads itself with a cache-busting ?v= URL. This is
        the same approach FixMi uses so the two apps stay consistent. */
-    const APP_VERSION = "8.5";
+    const APP_VERSION = "8.6";
     let _versionPublished = false;
 
     function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
@@ -3262,7 +3302,6 @@
 
     // Toggle expansion inline (Only one allowed expanded per column at a time)
     function toggleDirectorExpand(dirId) {
-      if (window.getSelection().toString()) return; // Stop toggle if user is selecting text to copy
       if (expandedDirectorId === dirId) {
         expandedDirectorId = null;
       } else {
@@ -3272,7 +3311,6 @@
     }
 
     function toggleCoachExpand(coachId) {
-      if (window.getSelection().toString()) return; // Stop toggle if user is selecting text to copy
       if (expandedCoachId === coachId) {
         expandedCoachId = null;
       } else {
@@ -3292,7 +3330,6 @@
     }
 
     function toggleRestaurantExpand(restId) {
-      if (window.getSelection().toString()) return; // Stop toggle if user is selecting text to copy
       if (expandedRestaurantId === restId) {
         expandedRestaurantId = null;
       } else {
@@ -3302,7 +3339,6 @@
     }
 
     function toggleTechnicianExpand(techId) {
-      if (window.getSelection().toString()) return; // Stop toggle if user is selecting text to copy
       if (expandedTechnicianId === techId) {
         expandedTechnicianId = null;
       } else {
@@ -3334,7 +3370,6 @@
     }
 
     function toggleEntityExpand(entId) {
-      if (window.getSelection().toString()) return; // Stop toggle if user is selecting text to copy
       if (expandedEntityId === entId) {
         expandedEntityId = null;
       } else {
@@ -3846,7 +3881,9 @@
         card.className = `card ${isSelected ? 'selected' : ''} ${linkedToOpenStore().dir === dirId ? 'linked-amber' : ''}`;
         card.setAttribute("data-id", dirId);
         card.setAttribute("data-type", "director");
-        card.setAttribute("draggable", "true");
+        // Drag-and-drop is a mouse feature. On touch, a draggable tile swallows
+        // taps (Android Chrome especially), so leave it off there.
+        if (!__isTouchDevice) card.setAttribute("draggable", "true");
 
         // Click toggles inline expansion and active filtering
         card.addEventListener("click", () => toggleDirectorExpand(dirId));
@@ -3875,7 +3912,7 @@
           card.innerHTML = `
             <div class="card-header-row" style="margin-bottom: 0; align-items: center;">
               <div class="card-title">${escapeHtml(dir.name)}</div>
-              <span style="font-size: 0.65rem; color: #a1a1aa; font-weight: 500;">Click to reveal</span>
+              <span style="font-size: 0.72rem; color: #64748b; font-weight: 600;">Tap to open</span>
             </div>
           `;
         }
@@ -3933,7 +3970,7 @@
           card.innerHTML = `
             <div class="card-header-row" style="margin-bottom: 0; align-items: center;">
               <div class="card-title">${escapeHtml(tech.name)}</div>
-              <span style="font-size: 0.65rem; color: #a1a1aa; font-weight: 500;">Click to reveal</span>
+              <span style="font-size: 0.72rem; color: #64748b; font-weight: 600;">Tap to open</span>
             </div>
           `;
         }
@@ -4072,7 +4109,7 @@
           card.innerHTML = `
             <div class="card-header-row" style="margin-bottom: 0; align-items: center;">
               <div class="card-title">${escapeHtml(ent.name)}${flagBadge}</div>
-              <span style="font-size: 0.65rem; color: #a1a1aa; font-weight: 500;">Click to reveal</span>
+              <span style="font-size: 0.72rem; color: #64748b; font-weight: 600;">Tap to open</span>
             </div>
           `;
         }
@@ -4126,7 +4163,9 @@
 
         const card = document.createElement("div");
         card.className = `card ${isSelected ? 'selected' : ''} ${linkedToOpenStore().coaches.indexOf(coachId) !== -1 ? 'linked-amber' : ''}`;
-        card.setAttribute("draggable", "true");
+        // Drag-and-drop is a mouse feature. On touch, a draggable tile swallows
+        // taps (Android Chrome especially), so leave it off there.
+        if (!__isTouchDevice) card.setAttribute("draggable", "true");
         card.setAttribute("data-id", coachId);
         card.setAttribute("data-type", "coach");
 
@@ -4170,7 +4209,7 @@
                 <span style="color: #cbd5e1; font-family: monospace; font-size: 0.75rem; user-select: none;">⋮⋮</span>
                 ${escapeHtml(coach.name)}
               </div>
-              <span style="font-size: 0.65rem; color: #a1a1aa; font-weight: 500;">Click to reveal</span>
+              <span style="font-size: 0.72rem; color: #64748b; font-weight: 600;">Tap to open</span>
             </div>
           `;
         }
@@ -4473,7 +4512,9 @@
 
         const card = document.createElement("div");
         card.className = "card" + (missing.length ? " card-incomplete" : "") + (isExpanded ? " expanded" : "");
-        card.setAttribute("draggable", "true");
+        // Drag-and-drop is a mouse feature. On touch, a draggable tile swallows
+        // taps (Android Chrome especially), so leave it off there.
+        if (!__isTouchDevice) card.setAttribute("draggable", "true");
         card.setAttribute("data-id", restId);
         card.setAttribute("data-type", "restaurant");
         if (missing.length) card.setAttribute("data-missing", missing.join(", "));
@@ -4578,7 +4619,7 @@
                 <span class="font-medium" style="font-size: 0.88rem; color: #334155; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 1;">${escapeHtml(getShortStoreName(rest.storeName, rest.storeNumber))}</span>
                 ${missingPillShort}
               </div>
-              <span style="font-size: 0.65rem; color: #a1a1aa; font-weight: 500; flex-shrink: 0; margin-left: 6px;">Expand</span>
+              <span class="tile-chevron" aria-hidden="true">›</span>
             </div>
           `;
         }
@@ -7810,7 +7851,6 @@
     let __mapView = null;          // Leaflet map instance
     let __mapMarkers = [];         // {marker, restId, groupKey}
     let __mapColorBy = "brand";    // brand | coach | director | entity | tech
-    const __isTouchDevice = (typeof window !== "undefined") && (("ontouchstart" in window) || (navigator && navigator.maxTouchPoints > 0));
     let __mapActiveGroup = null;   // groupKey isolated via legend, or null
     let __mapColorCache = {};      // groupKey -> color
     let __mapLegendData = {};
