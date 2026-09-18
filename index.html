@@ -2075,7 +2075,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v8.6 Vercel API</span>
+      <span>v8.7 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -2772,7 +2772,7 @@
        shared admins/appMeta node; every client compares on each load, and a
        stale client force-reloads itself with a cache-busting ?v= URL. This is
        the same approach FixMi uses so the two apps stay consistent. */
-    const APP_VERSION = "8.6";
+    const APP_VERSION = "8.7";
     let _versionPublished = false;
 
     function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
@@ -7485,13 +7485,30 @@
     function mCallChooser(restId) {
       const r = restaurants[restId];
       if (!r) return;
+      // Ordered: Store line -> GM -> AGM -> other managers -> DM(s) -> Director.
       const opts = [];
-      if (r.phone) opts.push({ label: "Store Line", sub: r.storeName || "", phone: r.phone });
-      (Array.isArray(r.managers) ? r.managers : []).forEach(m => {
-        if (m.phone) opts.push({ label: m.name || "Manager", sub: m.title || "", phone: m.phone });
-      });
-      if (r.managerCell) opts.push({ label: r.storeManager || "Manager", sub: "GM cell", phone: r.managerCell });
-      if (r.assistantManagerCell) opts.push({ label: r.assistantManager || "AGM", sub: "AGM cell", phone: r.assistantManagerCell });
+      const seen = new Set();   // by phone digits, so nobody is listed twice
+      const add = (label, sub, phone) => {
+        const d = String(phone || "").replace(/[^0-9]/g, "");
+        if (!d || seen.has(d)) return;
+        seen.add(d); opts.push({ label, sub, phone: formatPhoneNumber(phone) || phone });
+      };
+      add("Store Line", r.storeName || "", r.phone);
+
+      // Managers: imported list, with legacy GM/AGM as fallback. Sort by title rank.
+      let mgrs = (Array.isArray(r.managers) && r.managers.length) ? r.managers.slice() : [];
+      if (!mgrs.length) {
+        if (r.storeManager && r.managerCell) mgrs.push({ name: r.storeManager, title: "GM", phone: r.managerCell });
+        if (r.assistantManager && r.assistantManagerCell) mgrs.push({ name: r.assistantManager, title: "AGM", phone: r.assistantManagerCell });
+      }
+      const rank = { "GM": 0, "AGM": 1, "In Training": 2 };
+      mgrs.sort((a, b) => ((rank[a.title] ?? 3) - (rank[b.title] ?? 3)) || (a.name || "").localeCompare(b.name || ""));
+      mgrs.forEach(m => add(m.name || "Manager", m.title || "Manager", m.phone));
+
+      // District manager(s), then the Director of Operations.
+      getCoachIds(r).forEach(cid => { const c = areaCoaches[cid]; if (c) add(c.name, "District Manager", c.phone); });
+      const dir = r.assignedDirectorId && directors[r.assignedDirectorId];
+      if (dir) add(dir.name, "Director of Operations", dir.phone);
 
       if (opts.length === 0) return;
       if (opts.length === 1) { window.location.href = "tel:" + opts[0].phone.replace(/[^0-9]/g, ""); return; }
