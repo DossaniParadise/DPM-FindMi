@@ -2075,7 +2075,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v8.8 Vercel API</span>
+      <span>v9.0 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -2772,7 +2772,7 @@
        shared admins/appMeta node; every client compares on each load, and a
        stale client force-reloads itself with a cache-busting ?v= URL. This is
        the same approach FixMi uses so the two apps stay consistent. */
-    const APP_VERSION = "8.8";
+    const APP_VERSION = "9.0";
     let _versionPublished = false;
 
     function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
@@ -7352,32 +7352,62 @@
     // Verified work email for THIS export session (reset each time the modal opens).
     let _exportVerifiedEmail = null;
 
-    // Every email known to FindMi (people, not generic store mailboxes).
-    function knownWorkEmails() {
-      const set = new Set();
+    // Every person known to FindMi with an email (people, not store mailboxes).
+    function knownPeople() {
+      const out = [];
       [vps, directors, areaCoaches, repairTechnicians, entities].forEach(coll => {
         Object.keys(coll || {}).forEach(id => {
-          const e = (coll[id] && coll[id].email || "").trim().toLowerCase();
-          if (e) set.add(e);
+          const p = coll[id]; if (!p) return;
+          const e = (p.email || "").trim().toLowerCase();
+          if (e) out.push({ email: e, name: p.name || "" });
         });
       });
-      return set;
+      return out;
+    }
+    // Does `typedLast` match the surname of `fullName`? Normalizes punctuation
+    // (nicknames in quotes, hyphens) and accepts a compound surname suffix, so
+    // "Wickware" matches "Ravay 'Ray' Wickware" and both "Covarrubias" and
+    // "Murillo Covarrubias" match "Brenda Murillo Covarrubias".
+    function lastNameMatches(fullName, typedLast) {
+      const norm = (x) => String(x || "").toLowerCase().replace(/['".]/g, "").replace(/[^a-z\s-]/g, " ").replace(/\s+/g, " ").trim();
+      const n = norm(fullName), t = norm(typedLast);
+      if (!n || !t) return false;
+      return n === t || n.endsWith(" " + t);
+    }
+    // Email AND last name must belong to the same FindMi person.
+    function verifyPersonCredentials(email, lastName) {
+      const e = String(email || "").trim().toLowerCase();
+      if (!e) return false;
+      return knownPeople().some(p => p.email === e && lastNameMatches(p.name, lastName));
     }
 
-    // Cell-phone columns are sensitive: require a FindMi work email to confirm.
+    // ---- Sensitive-export verification (single source of truth) ----
+    // Cell-phone columns require a FindMi work email. This ONE function is used
+    // by every path that can select them: individual checkbox, "Select all",
+    // and a final backstop inside runExport - so no path can bypass it.
+    const SENSITIVE_EXPORT_KEYS = ["managerCell", "agmCell", "coachCell", "directorCell"];
+
+    function verifySensitiveExport() {
+      if (_exportVerifiedEmail) return true;   // already confirmed this export session
+      const email = prompt("You are attempting to export sensitive information.\n\nPlease enter your work email to confirm this action:");
+      if (email === null || !String(email).trim()) { alert("No email entered. Cell phone columns were not selected."); return false; }
+      const last = prompt("Now enter your last name to confirm:");
+      if (last === null || !String(last).trim()) { alert("No last name entered. Cell phone columns were not selected."); return false; }
+      if (verifyPersonCredentials(email, last)) { _exportVerifiedEmail = String(email).trim().toLowerCase(); return true; }
+      alert("That email and last name don't match anyone in FindMi. Cell phone columns were not selected.");
+      return false;
+    }
+    function uncheckSensitiveExportCols() {
+      SENSITIVE_EXPORT_KEYS.forEach(k => { const cb = document.querySelector('#exportColumnList input[value="' + k + '"]'); if (cb) cb.checked = false; });
+    }
+    function sensitiveExportSelected() {
+      return selectedExportKeys().some(k => SENSITIVE_EXPORT_KEYS.indexOf(k) !== -1);
+    }
+
+    // Path 1: an individual cell-phone checkbox.
     function gateSensitiveExport(cb) {
-      if (!cb.checked) { updateExportCount(); return; }
-      if (_exportVerifiedEmail) { updateExportCount(); return; }   // already confirmed this session
-      const typed = prompt("You are attempting to export sensitive information.\n\nPlease enter your work email to confirm this action:");
-      const email = (typed || "").trim().toLowerCase();
-      if (email && knownWorkEmails().has(email)) {
-        _exportVerifiedEmail = email;
-        updateExportCount();
-        return;
-      }
-      cb.checked = false;
+      if (cb.checked && !verifySensitiveExport()) cb.checked = false;
       updateExportCount();
-      alert(email ? "That email isn't listed in FindMi. The cell phone column was not selected." : "No email entered. The cell phone column was not selected.");
     }
 
     function openExportModal() {
@@ -7408,6 +7438,8 @@
 
     function setAllExportCols(on) {
       document.querySelectorAll("#exportColumnList input[type=checkbox]").forEach(cb => cb.checked = on);
+      // "Select all" includes the cell-phone columns, so it must verify too.
+      if (on && !verifySensitiveExport()) uncheckSensitiveExportCols();
       updateExportCount();
     }
 
@@ -7433,6 +7465,13 @@
 
     // Load SheetJS on demand (same CDN pattern as Leaflet), then build the file.
     function runExport() {
+      // BACKSTOP: no matter how the boxes got checked, sensitive columns need a
+      // verified work email before a file is built.
+      if (sensitiveExportSelected() && !verifySensitiveExport()) {
+        uncheckSensitiveExportCols();
+        updateExportCount();
+        return;
+      }
       const cols = EXPORT_COLUMNS.filter(c => selectedExportKeys().indexOf(c.key) !== -1);
       const includeStaff = !!(document.getElementById("exportStaffToggle") && document.getElementById("exportStaffToggle").checked);
       if (cols.length === 0 && !includeStaff) return;   // nothing selected
