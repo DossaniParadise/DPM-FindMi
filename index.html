@@ -2075,7 +2075,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v9.0 Vercel API</span>
+      <span>v9.1 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -2772,7 +2772,7 @@
        shared admins/appMeta node; every client compares on each load, and a
        stale client force-reloads itself with a cache-busting ?v= URL. This is
        the same approach FixMi uses so the two apps stay consistent. */
-    const APP_VERSION = "9.0";
+    const APP_VERSION = "9.1";
     let _versionPublished = false;
 
     function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
@@ -7389,13 +7389,27 @@
 
     function verifySensitiveExport() {
       if (_exportVerifiedEmail) return true;   // already confirmed this export session
-      const email = prompt("You are attempting to export sensitive information.\n\nPlease enter your work email to confirm this action:");
-      if (email === null || !String(email).trim()) { alert("No email entered. Cell phone columns were not selected."); return false; }
-      const last = prompt("Now enter your last name to confirm:");
-      if (last === null || !String(last).trim()) { alert("No last name entered. Cell phone columns were not selected."); return false; }
+      // Ask for email and last name in RANDOM order, and never hint at what
+      // the check is against. A failure says only that they didn't line up.
+      const intro = "You are attempting to export sensitive information.\n\n";
+      const askEmail = () => prompt(intro + "Please enter your work email to confirm this action:");
+      const askLast  = () => prompt(intro + "Please enter your last name to confirm this action:");
+      const emailFirst = Math.random() < 0.5;
+      let email, last;
+      if (emailFirst) {
+        email = askEmail(); if (email === null) return deny();
+        last  = prompt("And your last name:"); if (last === null) return deny();
+      } else {
+        last  = askLast(); if (last === null) return deny();
+        email = prompt("And your work email:"); if (email === null) return deny();
+      }
       if (verifyPersonCredentials(email, last)) { _exportVerifiedEmail = String(email).trim().toLowerCase(); return true; }
-      alert("That email and last name don't match anyone in FindMi. Cell phone columns were not selected.");
-      return false;
+      return deny();
+
+      function deny() {
+        alert("Those didn't line up. Cell phone columns were not selected.");
+        return false;
+      }
     }
     function uncheckSensitiveExportCols() {
       SENSITIVE_EXPORT_KEYS.forEach(k => { const cb = document.querySelector('#exportColumnList input[value="' + k + '"]'); if (cb) cb.checked = false; });
