@@ -7,6 +7,19 @@
        That auto-linking added its own underline that wrapped mid-value and
        looked broken. The Call/Email/Go buttons are the intended actions. -->
   <meta name="format-detection" content="telephone=no, address=no, email=no">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#1b1660" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#120f3a" media="(prefers-color-scheme: dark)">
+  <script>
+    /* Apply the remembered theme before first paint so dark users never see a
+       white flash. Default is light. */
+    (function () {
+      try {
+        var t = localStorage.getItem("dpm_theme");
+        if (t === "dark") document.documentElement.setAttribute("data-theme", "dark");
+      } catch (e) {}
+    })();
+  </script>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>DPM FindMi</title>
 <link rel="icon" type="image/png" href="favicon-96x96.png" sizes="96x96" />
@@ -465,16 +478,70 @@
       --success-dark: #166b3a;
       --danger-color: #d0182b;
       --warning-color: #c77d09;
-      --neutral-light: #f7f8fb;
-      --neutral-border: #dee1e8;
-      --text-dark: #14161f;
-      --text-muted: #6b6f7d;
-      --bg-white: #ffffff;
+      /* ===== THEME TOKENS (light) - every surface/text/border color in the
+         app resolves to one of these, so dark mode is a single override. ===== */
+      --t-bg:        #eaecf2;   /* app background */
+      --t-surface:   #ffffff;   /* cards, panels, modals */
+      --t-surface-2: #f7f8fb;   /* inputs, subtle fills, zebra rows */
+      --t-tint:      #eef0fb;   /* brand-tinted fill (hover, soft chips) */
+      --t-tint-2:    #e0e7ff;   /* stronger brand tint (active) */
+      --t-line:      #dee1e8;   /* borders, dividers */
+      --t-line-2:    #cbd5e1;   /* input borders */
+      --t-ink:       #14161f;   /* primary text */
+      --t-ink-2:     #334155;   /* strong secondary text */
+      --t-muted:     #64748b;   /* labels, secondary */
+      --t-faint:     #94a3b8;   /* hints, placeholders */
+      --t-brand:     #251d7f;   /* brand navy used AS TEXT / accents */
+      --t-brand-fill:#251d7f;   /* brand navy used as a FILL (white text on it) */
+      --t-hover:     #eef2ff;   /* click-to-copy hover */
+      --t-ok-bg: #dcfce7;  --t-ok-fg: #166534;
+      --t-warn-bg: #fef3c7; --t-warn-fg: #92400e;
+      --t-bad-bg: #fee2e2;  --t-bad-fg: #991b1b;
+      --t-info-bg: #eff6ff; --t-info-fg: #1d4ed8; --t-info-line: #bfdbfe;
+      --t-amber-glow-bg: #fffbeb; --t-amber-glow-line: #f59e0b;
+      --t-toast-bg: #111827; --t-toast-fg: #ffffff;
+      --t-shadow: rgba(20,16,74,0.10);
+
+      --neutral-light: var(--t-surface-2);
+      --neutral-border: var(--t-line);
+      --text-dark: var(--t-ink);
+      --text-muted: var(--t-muted);
+      --bg-white: var(--t-surface);
       --shadow-sm: 0 1px 3px rgba(20,16,74,0.08), 0 1px 2px rgba(20,16,74,0.06);
       --shadow-md: 0 4px 12px rgba(20,16,74,0.10), 0 2px 4px rgba(20,16,74,0.06);
       --font-display: 'Cinzel', 'Times New Roman', serif;
       --font-serif: 'Cormorant Garamond', Georgia, serif;
       --font-sans: 'Mulish', system-ui, -apple-system, sans-serif;
+    }
+
+    /* ===== DARK MODE - vetted slate palette. Contrast (on --t-surface #1e293b):
+       ink #e6eaf2 = 12.1:1, ink-2 #cbd5e1 = 9.9:1, muted #a3b1c6 = 6.7:1,
+       faint #8a97ae = 5.0:1, brand #b4bcff = 8.1:1. All >= 4.5:1 (WCAG AA). ===== */
+    html[data-theme="dark"] {
+      --t-bg:        #0b1220;
+      --t-surface:   #1e293b;
+      --t-surface-2: #253247;
+      --t-tint:      #2a2f5e;
+      --t-tint-2:    #363c7a;
+      --t-line:      #334155;
+      --t-line-2:    #475569;
+      --t-ink:       #e6eaf2;
+      --t-ink-2:     #cbd5e1;
+      --t-muted:     #a3b1c6;
+      --t-faint:     #8a97ae;
+      --t-brand:     #b4bcff;
+      --t-brand-fill:#3b34a8;
+      --t-hover:     rgba(180,188,255,0.14);
+      --t-ok-bg: #12351f;  --t-ok-fg: #86efac;
+      --t-warn-bg: #3a2a08; --t-warn-fg: #fcd34d;
+      --t-bad-bg: #3f1416;  --t-bad-fg: #fca5a5;
+      --t-info-bg: #172a4a; --t-info-fg: #93c5fd; --t-info-line: #2f4f7e;
+      --t-amber-glow-bg: #2e2308; --t-amber-glow-line: #f59e0b;
+      --t-toast-bg: #e6eaf2; --t-toast-fg: #0b1220;
+      --t-shadow: rgba(0,0,0,0.45);
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.4);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.55), 0 2px 4px rgba(0,0,0,0.4);
+      color-scheme: dark;
     }
 
     * {
@@ -486,7 +553,7 @@
     body {
       font-family: var(--font-sans);
       color: var(--text-dark);
-      background-color: #eaecf2;
+      background-color: var(--t-bg);
       line-height: 1.35;
       padding: 0;
       margin: 0;
@@ -501,7 +568,7 @@
 
     /* Core Layout */
     header {
-      background-color: #1b1660;
+      background-color: var(--t-brand);
       border-bottom: 3px solid #e8091b;
       padding: 8px 18px;
       box-shadow: var(--shadow-md);
@@ -557,12 +624,12 @@
     .lock-status-text { font-size: 0.7rem; font-weight: 700; color: #ff9aa4; letter-spacing: 0.04em; }
 
     .header-logo span {
-      background-color: #e2e8f0;
+      background-color: var(--t-line);
       padding: 2px 6px;
       border-radius: 4px;
       font-size: 0.7rem;
       font-weight: 600;
-      color: #475569;
+      color: var(--t-muted);
     }
 
     .header-actions {
@@ -579,13 +646,13 @@
       font-weight: 500;
       padding: 2px 8px;
       border-radius: 12px;
-      background-color: #fee2e2;
-      color: #991b1b;
+      background-color: var(--t-bad-bg);
+      color: var(--t-bad-fg);
     }
 
     .status-badge.online {
-      background-color: #dcfce7;
-      color: #166534;
+      background-color: var(--t-ok-bg);
+      color: var(--t-ok-fg);
     }
 
     .status-dot {
@@ -657,7 +724,7 @@
       transition: background 0.15s ease, height 0.15s ease;
     }
     .col-resizer:hover::before,
-    .col-resizer.dragging::before { background: #251d7f; height: 60px; }
+    .col-resizer.dragging::before { background: var(--t-brand-fill); height: 60px; }
     .col-resizer:hover, .col-resizer.dragging { background: rgba(37,29,127,0.06); }
     body.col-dragging { cursor: col-resize; user-select: none; }
     @media (max-width: 768px) { .col-resizer { display: none; } }
@@ -703,14 +770,14 @@
       font-weight: 600;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: #251d7f;
+      color: var(--t-brand);
       display: flex;
       align-items: center;
       gap: 6px;
     }
 
     .column-counter {
-      background-color: #251d7f;
+      background-color: var(--t-brand);
       color: #ffffff;
       font-size: 0.68rem;
       font-weight: 700;
@@ -720,11 +787,11 @@
 
     /* Selection Filter UI Alert */
     .filter-message-bar {
-      background-color: #f2f1fc;
+      background-color: var(--t-tint);
       border-bottom: 1px solid #c7c3f1;
       padding: 4px 10px;
       font-size: 0.72rem;
-      color: #251d7f;
+      color: var(--t-brand);
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -733,7 +800,7 @@
     .clear-filter-btn {
       background: none;
       border: none;
-      color: #251d7f;
+      color: var(--t-brand);
       font-weight: 600;
       cursor: pointer;
       text-decoration: underline;
@@ -741,7 +808,7 @@
     }
 
     .clear-filter-btn:hover {
-      color: #1b1660;
+      color: var(--t-brand);
     }
 
     /* Cards container */
@@ -752,12 +819,12 @@
       display: flex;
       flex-direction: column;
       gap: 4px;
-      background-color: #f8fafc;
+      background-color: var(--t-surface-2);
     }
 
     /* Drag over effects */
     .cards-list.drag-hover {
-      background-color: #f0fdf4;
+      background-color: var(--t-ok-bg);
       border: 2px dashed var(--success-color);
       border-radius: 0 0 4px 4px;
     }
@@ -787,7 +854,7 @@
     }
 
     .card:hover {
-      border-color: #cbd5e1;
+      border-color: var(--t-line-2);
       box-shadow: var(--shadow-md);
     }
 
@@ -803,7 +870,7 @@
     /* Droppable card indicators */
     .card.drag-hover-target {
       border-color: var(--success-color) !important;
-      background-color: #f0fdf4 !important;
+      background-color: var(--t-ok-bg) !important;
       transform: scale(1.01);
     }
 
@@ -811,7 +878,7 @@
     .card.selected {
       border-color: var(--primary-color);
       border-width: 2px;
-      background-color: #f2f1fc;
+      background-color: var(--t-tint);
     }
 
     /* Card Content Detail */
@@ -825,12 +892,12 @@
     .card-title {
       font-weight: 600;
       font-size: 0.78rem;
-      color: #0f172a;
+      color: var(--t-ink);
     }
 
     .store-badge {
       font-size: 0.65rem;
-      background-color: #251d7f;
+      background-color: var(--t-brand);
       color: #ffffff;
       padding: 1px 5px;
       border-radius: 4px;
@@ -855,16 +922,16 @@
     }
 
     /* Batch import mode tabs */
-    .bimode-tab { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
-    .bimode-tab.bimode-on { background: #251d7f; color: #fff; border-color: #251d7f; }
+    .bimode-tab { background: var(--t-surface-2); color: var(--t-muted); border: 1px solid var(--t-line-2); }
+    .bimode-tab.bimode-on { background: var(--t-brand-fill); color: #fff; border-color: var(--t-brand); }
 
     .copy-all-btn {
       font-size: 0.68rem; font-weight: 600; padding: 3px 8px;
-      background: #eef0fb; color: #251d7f; border: 1px solid #d6dbf5;
+      background: var(--t-tint); color: var(--t-brand); border: 1px solid var(--t-line-2);
       border-radius: 6px; cursor: pointer; white-space: nowrap;
       display: inline-flex; align-items: center; gap: 3px;
     }
-    .copy-all-btn:hover { background: #e0e4f7; }
+    .copy-all-btn:hover { background: var(--t-tint-2); }
     @media (max-width: 768px) {
       .copy-all-btn { font-size: 0.8rem; padding: 6px 12px; min-height: 34px; }
     }
@@ -875,10 +942,10 @@
       cursor: pointer; border-radius: 5px; padding: 2px 6px;
       transition: background-color .12s ease;
     }
-    .copy-field:hover { background-color: #eef2ff; }
-    .copy-field:active { background-color: #e0e7ff; }
+    .copy-field:hover { background-color: var(--t-tint); }
+    .copy-field:active { background-color: var(--t-tint-2); }
     @keyframes copyFlash {
-      0% { background-color: #a5b4fc; }
+      0% { background-color: var(--t-tint-2); }
       100% { background-color: transparent; }
     }
     .copy-field.copied-flash { animation: copyFlash .6s ease; }
@@ -886,22 +953,22 @@
     /* Standardized field rows: one font, one layout, for store AND people cards. */
     .cf-row {
       display: flex; align-items: center; gap: 6px; width: 100%; box-sizing: border-box;
-      font-size: 0.8rem; font-weight: 500; color: #334155; line-height: 1.4;
+      font-size: 0.8rem; font-weight: 500; color: var(--t-ink-2); line-height: 1.4;
       min-width: 0; margin: 1px 0;
     }
     .cf-icon { flex-shrink: 0; width: 1.2em; text-align: center; opacity: .85; }
-    .cf-label { flex-shrink: 0; color: #64748b; font-weight: 600; }
+    .cf-label { flex-shrink: 0; color: var(--t-muted); font-weight: 600; }
     .cf-label::after { content: ":"; }
     /* Values wrap onto a second line when long (addresses, emails) instead of
        truncating - a phone was cutting the zip code off long addresses. */
-    .cf-value { flex: 1 1 auto; min-width: 0; color: #1e293b; white-space: normal; overflow-wrap: anywhere; line-height: 1.35; }
+    .cf-value { flex: 1 1 auto; min-width: 0; color: var(--t-ink); white-space: normal; overflow-wrap: anywhere; line-height: 1.35; }
     .cf-row { align-items: flex-start; }
     .cf-row .cf-icon, .cf-row .cf-label { padding-top: 1px; }
     .cf-row .cf-remove {
       margin-left: auto; flex-shrink: 0; background: none; border: none; cursor: pointer;
-      color: #94a3b8; font-weight: 700; padding: 0 4px; line-height: 1;
+      color: var(--t-faint); font-weight: 700; padding: 0 4px; line-height: 1;
     }
-    .cf-row .cf-remove:hover { color: #b91c1c; }
+    .cf-row .cf-remove:hover { color: var(--t-bad-fg); }
     @media (max-width: 768px) {
       .cf-row { font-size: 0.9rem; padding: 5px 4px; }
     }
@@ -912,15 +979,15 @@
       margin-left: auto; flex-shrink: 0; align-self: center;
       font-size: 0.66rem; font-weight: 700; letter-spacing: .01em;
       padding: 1px 8px; border-radius: 999px; text-decoration: none;
-      background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;
+      background: var(--t-info-bg); color: var(--t-info-fg); border: 1px solid var(--t-info-line);
       pointer-events: auto !important; white-space: nowrap;
     }
-    .open-map-badge:hover { background: #dbeafe; }
+    .open-map-badge:hover { background: var(--t-info-bg); }
     @media (max-width: 768px) { .open-map-badge { font-size: 0.74rem; padding: 3px 10px; } }
 
     /* Amber glow on people/entity tiles linked to the store you have open. */
     .card.linked-amber {
-      background: #fffbeb !important;
+      background: var(--t-warn-bg) !important;
       border-color: #f59e0b !important;
       box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.28), var(--shadow-sm) !important;
     }
@@ -937,10 +1004,10 @@
       }
       #restaurantsList .card.expanded .cf-section-title {
         display: block; font-size: 0.62rem; font-weight: 800; letter-spacing: .08em;
-        text-transform: uppercase; color: #94a3b8; margin: 4px 0 3px 6px;
+        text-transform: uppercase; color: var(--t-faint); margin: 4px 0 3px 6px;
       }
       /* Each section's rows are a tidy vertical stack. */
-      #restaurantsList .card.expanded .cf-section { border-left: 2px solid #eef1f7; padding-left: 4px; }
+      #restaurantsList .card.expanded .cf-section { border-left: 2px solid var(--t-line-2); padding-left: 4px; }
       #restaurantsList .card.expanded .cf-section:first-child { border-left: none; padding-left: 0; }
     }
 
@@ -949,10 +1016,10 @@
       cursor: pointer; -webkit-tap-highlight-color: rgba(37,29,127,0.12);
     }
     .tile-chevron {
-      flex-shrink: 0; margin-left: 8px; color: #64748b; font-size: 1.15rem; line-height: 1;
+      flex-shrink: 0; margin-left: 8px; color: var(--t-muted); font-size: 1.15rem; line-height: 1;
       font-weight: 700; transition: transform .15s ease;
     }
-    .card:hover .tile-chevron { color: #251d7f; }
+    .card:hover .tile-chevron { color: var(--t-brand); }
     @media (max-width: 768px) {
       /* Store name may wrap instead of truncating on a phone. */
       #restaurantsList .card-title { white-space: normal !important; max-width: none !important; }
@@ -963,6 +1030,59 @@
       .cf-section-title { font-size: 0.7rem; }
       .staff-ext-badge, .staff-head-badge { font-size: 0.72rem; }
     }
+
+    /* ===== Dark-mode component overrides (things tokens can't reach) ===== */
+    html[data-theme="dark"] body { background: var(--t-bg); color: var(--t-ink); }
+    html[data-theme="dark"] header { background-color: #120f3a; }
+    html[data-theme="dark"] .column { background-color: var(--t-surface); border-color: var(--t-line); }
+    html[data-theme="dark"] .column-header { background-color: var(--t-surface-2); border-color: var(--t-line); }
+    html[data-theme="dark"] .card { background: var(--t-surface); border-color: var(--t-line); color: var(--t-ink); }
+    html[data-theme="dark"] .card:hover { background: var(--t-surface-2); }
+    html[data-theme="dark"] .card.selected { background: var(--t-tint); border-color: var(--t-brand); }
+    html[data-theme="dark"] .card.linked-amber { background: var(--t-amber-glow-bg) !important; border-color: var(--t-amber-glow-line) !important; }
+    html[data-theme="dark"] input, html[data-theme="dark"] select, html[data-theme="dark"] textarea {
+      background: var(--t-surface-2); color: var(--t-ink); border-color: var(--t-line-2);
+    }
+    html[data-theme="dark"] input::placeholder { color: var(--t-faint); }
+    html[data-theme="dark"] .global-search-input { background: var(--t-surface-2); color: var(--t-ink); }
+    html[data-theme="dark"] .global-search-clear { background: var(--t-line); color: var(--t-ink-2); }
+    html[data-theme="dark"] .modal-card { background: var(--t-surface); color: var(--t-ink); border: 1px solid var(--t-line); }
+    html[data-theme="dark"] .modal-header, html[data-theme="dark"] .modal-footer { background: var(--t-surface-2); border-color: var(--t-line); }
+    html[data-theme="dark"] .modal-backdrop { background: rgba(0,0,0,0.65); }
+    html[data-theme="dark"] .btn { background: var(--t-surface-2); color: var(--t-ink); border-color: var(--t-line-2); }
+    html[data-theme="dark"] .btn-primary { background: var(--t-brand-fill); color: #fff; border-color: transparent; }
+    html[data-theme="dark"] .copy-all-btn { background: var(--t-tint); color: var(--t-brand); border-color: var(--t-line-2); }
+    html[data-theme="dark"] .copy-field:hover { background-color: var(--t-hover); }
+    html[data-theme="dark"] .copy-field.copied-flash { animation: copyFlashDark .6s ease; }
+    @keyframes copyFlashDark { 0% { background-color: var(--t-tint-2); } 100% { background-color: transparent; } }
+    html[data-theme="dark"] #copyToast { background: var(--t-toast-bg); color: var(--t-toast-fg); }
+    html[data-theme="dark"] .m-tabs { background: var(--t-surface); border-top-color: var(--t-line); box-shadow: 0 -2px 14px rgba(0,0,0,.5); }
+    html[data-theme="dark"] .m-tab { color: var(--t-faint); }
+    html[data-theme="dark"] .m-tab.on { color: var(--t-brand); }
+    html[data-theme="dark"] .m-act-mail { background: var(--t-tint); color: var(--t-brand); border-color: var(--t-line-2); }
+    html[data-theme="dark"] .filter-message-bar { background: var(--t-tint); border-color: var(--t-line-2); color: var(--t-ink); }
+    html[data-theme="dark"] .store-filter-sel, html[data-theme="dark"] .control-select { background: var(--t-surface-2); color: var(--t-ink); border-color: var(--t-line-2); }
+    html[data-theme="dark"] .history-tray { background-color: var(--t-surface); border-top-color: var(--t-line); }
+    html[data-theme="dark"] .col-resizer::before { background: var(--t-line-2); }
+    html[data-theme="dark"] .cf-section { border-left-color: var(--t-line); }
+    html[data-theme="dark"] .open-map-badge { background: var(--t-info-bg); color: var(--t-info-fg); border-color: var(--t-info-line); }
+    html[data-theme="dark"] .staff-ext-badge, html[data-theme="dark"] .store-badge { background: var(--t-brand-fill); color: #fff; }
+    html[data-theme="dark"] ::-webkit-scrollbar { background: var(--t-surface); }
+    html[data-theme="dark"] ::-webkit-scrollbar-thumb { background: var(--t-line-2); border-radius: 6px; }
+    html[data-theme="dark"] .leaflet-popup-content-wrapper, html[data-theme="dark"] .leaflet-popup-tip { background: var(--t-surface); color: var(--t-ink); }
+    html[data-theme="dark"] .view-gate-card { background: var(--t-surface); color: var(--t-ink); }
+    html[data-theme="dark"] ::selection { background: var(--t-tint-2); color: var(--t-ink); }
+
+    /* Theme toggle button (header). Visible on desktop AND mobile. */
+    .theme-toggle {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.25);
+      background: rgba(255,255,255,0.08); color: #fff; cursor: pointer; font-size: 1.05rem;
+      line-height: 1; margin-left: 8px; flex-shrink: 0; -webkit-tap-highlight-color: transparent;
+      transition: background .15s ease, transform .15s ease;
+    }
+    .theme-toggle:hover { background: rgba(255,255,255,0.18); transform: rotate(-12deg); }
+    @media (max-width: 768px) { .theme-toggle { display: inline-flex !important; width: 38px; height: 38px; } }
 
     /* Copy toast */
     #copyToast {
@@ -995,7 +1115,7 @@
     .copy-btn-mini:hover {
       color: var(--primary-color);
       border-color: #9d97e6;
-      background-color: #f2f1fc;
+      background-color: var(--t-tint);
     }
 
     /* Sub-text relationships */
@@ -1016,25 +1136,25 @@
     }
 
     .badge-director {
-      background-color: #e6e4f9;
-      color: #251d7f;
+      background-color: var(--t-tint);
+      color: var(--t-brand);
     }
 
     .badge-coach {
       background-color: #dbe7fb;
-      color: #2b64c6;
+      color: var(--t-info-fg);
     }
 
     .badge-entity {
-      background-color: #ffe0e3;
+      background-color: var(--t-bad-bg);
       color: #a10715;
       border: 1px solid #febcc2;
     }
 
     .badge-unassigned {
-      background-color: #f1f5f9;
-      color: #475569;
-      border: 1px dashed #cbd5e1;
+      background-color: var(--t-surface-2);
+      color: var(--t-muted);
+      border: 1px dashed var(--t-line-2);
     }
 
     /* Restaurant group titles on selected views */
@@ -1043,10 +1163,10 @@
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: #64748b;
+      color: var(--t-muted);
       margin: 10px 0 5px 0;
       padding-bottom: 4px;
-      border-bottom: 1px solid #e2e8f0;
+      border-bottom: 1px solid var(--t-line-2);
       pointer-events: none;
     }
 
@@ -1067,13 +1187,13 @@
       border-radius: 5px;
       border: 1px solid #c2c6d0;
       background-color: var(--bg-white);
-      color: #251d7f;
+      color: var(--t-brand);
       cursor: pointer;
       transition: all 0.14s cubic-bezier(0.16,1,0.3,1);
     }
 
     .btn:hover {
-      background-color: #f2f1fc;
+      background-color: var(--t-tint);
       border-color: #9d97e6;
     }
 
@@ -1086,10 +1206,10 @@
       /* Roomier, readable cards - the core complaint was cramped density. */
       .card {
         padding: 15px 16px; border-radius: 14px; margin-bottom: 11px;
-        border: 1px solid #eef1f7;
+        border: 1px solid var(--t-line-2);
         box-shadow: 0 1px 2px rgba(15,23,42,.04), 0 4px 12px rgba(15,23,42,.03);
       }
-      .card:active { background: #fafbff; }
+      .card:active { background: var(--t-surface-2); }
       .card-title { font-size: 1rem; line-height: 1.35; }
       .card-detail { font-size: 0.9rem; line-height: 1.5; margin-bottom: 5px; }
       /* The store-number badge: cleaner, brand navy, a touch bigger. */
@@ -1116,13 +1236,13 @@
       .m-act svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
       .m-act:active { transform: scale(.95); filter: brightness(.94); }
       /* Brand-navy family, differentiated so the three read apart at a glance. */
-      .m-act-call { background: #251d7f; color: #fff; }
-      .m-act-mail { background: #eef0fb; color: #251d7f; border: 1px solid #d6dbf5; }
+      .m-act-call { background: var(--t-brand-fill); color: #fff; }
+      .m-act-mail { background: var(--t-tint); color: var(--t-brand); border: 1px solid var(--t-line-2); }
       .m-act-nav  { background: #f59e0b; color: #fff; }
       /* "Stores (N)" on people cards: jumps to the pre-filtered Stores tab. */
       .m-act-stores { background: #0f766e; color: #fff; cursor: pointer; }
       /* Missing data: visible but inert, so the row stays a stable grid. */
-      .m-act-off { background: #f1f5f9; color: #cbd5e1; pointer-events: none; }
+      .m-act-off { background: var(--t-surface-2); color: #cbd5e1; pointer-events: none; }
       .m-act-off:active { transform: none; }
 
       /* Mobile is for lookup, not editing. The Go button already opens maps, so
@@ -1138,7 +1258,7 @@
       /* Make the kept ones a comfortable tap target. */
       .card .copy-keep {
         font-size: 0.78rem; padding: 6px 10px; border-radius: 8px;
-        min-height: 34px; color: #251d7f; border-color: #d6dbf5; background: #eef0fb;
+        min-height: 34px; color: var(--t-brand); border-color: var(--t-line-2); background: var(--t-tint);
       }
     }
 
@@ -1171,23 +1291,23 @@
        tint while editing is unlocked, so gaps are obvious when you can fix
        them and invisible to viewers. */
     body.editing-unlocked .card.card-incomplete {
-      background-color: #fff5f5;
-      border-color: #fecaca;
+      background-color: var(--t-bad-bg);
+      border-color: var(--t-bad-fg);
       box-shadow: inset 3px 0 0 #f87171, 0 1px 2px rgba(0,0,0,0.03);
     }
-    body.editing-unlocked .card.card-incomplete:hover { border-color: #fca5a5; }
+    body.editing-unlocked .card.card-incomplete:hover { border-color: var(--t-bad-fg); }
     .incomplete-pill {
       display: none; align-items: center; flex-shrink: 0;
       margin-left: 6px; padding: 1px 6px; border-radius: 9999px;
       font-size: 0.62rem; font-weight: 600; white-space: nowrap;
-      color: #b91c1c; background: #fee2e2; border: 1px solid #fecaca;
+      color: var(--t-bad-fg); background: var(--t-bad-bg); border: 1px solid var(--t-bad-fg);
       overflow: hidden; text-overflow: ellipsis; max-width: 46%;
     }
 
     /* Support Staff: department group headers + head badge. */
     .staff-dept-header {
       font-size: 0.68rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
-      color: #64748b; padding: 10px 6px 4px; margin-top: 2px;
+      color: var(--t-muted); padding: 10px 6px 4px; margin-top: 2px;
     }
     /* Global search bar in the header - filters every section at once. */
     .global-search-wrap {
@@ -1200,15 +1320,15 @@
     .global-search-input {
       width: 100%; box-sizing: border-box;
       padding: 8px 32px 8px 34px; font-size: 0.85rem;
-      border: 1px solid #cbd5e1; border-radius: 999px;
-      background: #fff; color: #0f172a;
+      border: 1px solid var(--t-line-2); border-radius: 999px;
+      background: var(--t-surface); color: var(--t-ink);
     }
-    .global-search-input:focus { outline: none; border-color: #251d7f; box-shadow: 0 0 0 3px rgba(37,29,127,.12); }
+    .global-search-input:focus { outline: none; border-color: var(--t-brand); box-shadow: 0 0 0 3px rgba(37,29,127,.12); }
     .global-search-clear {
       position: absolute; right: 8px; display: none;
       align-items: center; justify-content: center;
       width: 22px; height: 22px; border: none; border-radius: 50%;
-      background: #e2e8f0; color: #475569; font-size: 1rem; cursor: pointer; line-height: 1;
+      background: var(--t-line); color: var(--t-muted); font-size: 1rem; cursor: pointer; line-height: 1;
     }
     @media (max-width: 768px) {
       .global-search-wrap { order: 3; flex-basis: 100%; max-width: none; margin: 6px 0 0; }
@@ -1221,7 +1341,7 @@
       display: inline-block; flex-shrink: 0;
       font-size: 0.62rem; font-weight: 700; letter-spacing: .02em;
       padding: 2px 7px; border-radius: 999px; line-height: 1.4;
-      background: #251d7f; color: #fff;
+      background: var(--t-brand-fill); color: #fff;
       min-width: 34px; text-align: center;
     }
     /* Support Staff row: [name] .... [job title] [ext badge].
@@ -1233,7 +1353,7 @@
       margin-left: auto; min-width: 0; flex: 1 1 auto; justify-content: flex-end;
     }
     .staff-jobtitle {
-      font-size: 0.68rem; color: #64748b; font-weight: 500; text-align: right;
+      font-size: 0.68rem; color: var(--t-muted); font-weight: 500; text-align: right;
       min-width: 0; overflow: hidden; text-overflow: ellipsis;
       display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
       line-height: 1.25;
@@ -1252,7 +1372,7 @@
     .staff-head-badge {
       display: none;   /* editor-only: revealed when editing is unlocked. It only affects sort order otherwise. */
       font-size: 0.6rem; font-weight: 700; letter-spacing: .02em;
-      background: #251d7f; color: #fff; padding: 1px 6px; border-radius: 999px;
+      background: var(--t-brand-fill); color: #fff; padding: 1px 6px; border-radius: 999px;
       vertical-align: middle; margin-left: 5px;
     }
     body.editing-unlocked .staff-head-badge { display: inline-block; }
@@ -1281,7 +1401,7 @@
     .store-filter-row { display: flex; gap: 6px; }
     .store-filter-sel {
       flex: 1; min-width: 0; padding: 4px 6px; font-size: 0.72rem;
-      border: 1px solid #cbd5e1; border-radius: 5px; background: var(--bg-white); color: #0f172a;
+      border: 1px solid var(--t-line-2); border-radius: 5px; background: var(--bg-white); color: var(--t-ink);
     }
     @media (max-width: 768px) {
       /* Roomier, tappable filters on mobile - the HEB-style quick filters. */
@@ -1290,18 +1410,18 @@
          visible sooner on a phone. Still comfortably tappable. */
       .store-filter-sel {
         flex: 1 1 calc(50% - 3px); min-width: 0; padding: 10px 10px; font-size: 0.85rem; border-radius: 10px;
-        background: #f8fafc; font-weight: 600; color: #251d7f;
+        background: var(--t-surface-2); font-weight: 600; color: var(--t-brand);
       }
     }
 
     /* Flags a field whose value never leaves the edit dialog. */
-    .field-private { font-weight: 400; font-size: .65rem; color: #b45309; letter-spacing: .01em; }
-    .field-opt { font-weight: 400; font-size: .65rem; color: #94a3b8; }
+    .field-private { font-weight: 400; font-size: .65rem; color: var(--t-warn-fg); letter-spacing: .01em; }
+    .field-opt { font-weight: 400; font-size: .65rem; color: var(--t-faint); }
 
     /* --- technician specialties + zone colour --- */
     .tech-cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px}
     .tech-cat-chk{display:flex;align-items:center;gap:7px;padding:8px 10px;border:1px solid var(--color-border,#d7d7d7);
-      border-radius:8px;font-size:13px;cursor:pointer;background:#fff;min-height:38px}
+      border-radius:8px;font-size:13px;cursor:pointer;background:var(--t-surface);min-height:38px}
     .tech-cat-chk:has(input:checked){border-color:var(--red-600);background:var(--red-50);font-weight:600}
     .tech-cat-chk input{width:16px;height:16px;cursor:pointer}
     .tech-swatches{display:flex;gap:8px;flex-wrap:wrap}
@@ -1318,32 +1438,32 @@
     }
     .view-gate.hidden { display: none; }
     .view-gate-box {
-      background: #fff; border-radius: 12px; padding: 28px 26px;
+      background: var(--t-surface); border-radius: 12px; padding: 28px 26px;
       width: 100%; max-width: 340px; text-align: center;
       box-shadow: 0 18px 50px rgba(0,0,0,.35);
     }
     .view-gate-logo { font-size: 1.05rem; font-weight: 800; color: var(--navy-700, #251d7f); letter-spacing: -.01em; }
-    .view-gate-sub { font-size: .8rem; color: #64748b; margin: 6px 0 16px; }
+    .view-gate-sub { font-size: .8rem; color: var(--t-muted); margin: 6px 0 16px; }
     .view-gate-box input {
       width: 100%; box-sizing: border-box; padding: 10px 12px; font-size: 1rem;
       text-align: center; letter-spacing: .28em;
-      border: 1px solid #cbd5e1; border-radius: 6px; margin-bottom: 10px;
+      border: 1px solid var(--t-line-2); border-radius: 6px; margin-bottom: 10px;
     }
-    .view-gate-box input:focus { outline: none; border-color: var(--navy-700, #251d7f); }
+    .view-gate-box input:focus { outline: none; border-color: var(--navy-700, var(--t-brand)); }
     .view-gate-box .btn { width: 100%; justify-content: center; padding: 9px; }
-    .view-gate-error { color: #dc2626; font-size: .75rem; line-height: 1.35; min-height: 32px; margin-bottom: 6px; }
+    .view-gate-error { color: var(--t-bad-fg); font-size: .75rem; line-height: 1.35; min-height: 32px; margin-bottom: 6px; }
 
     /* --- assignment pickers --- */
     .picker { display: flex; flex-direction: column; gap: 4px; }
     .picker-row { display: flex; align-items: center; gap: 5px; }
     .picker-row select { flex: 1; }
-    .picker-x { background: none; border: none; color: #94a3b8; cursor: pointer;
+    .picker-x { background: none; border: none; color: var(--t-faint); cursor: pointer;
                 font-weight: 700; font-size: .85rem; padding: 0 4px; }
-    .picker-x:hover { color: #dc2626; }
+    .picker-x:hover { color: var(--t-bad-fg); }
     .picker-add { align-self: flex-start; background: none; border: none; cursor: pointer;
                   color: var(--primary-color, #251d7f); font-size: .72rem; font-weight: 600; padding: 2px 0; }
-    .picker-hint { font-size: .68rem; color: #64748b; margin-top: 4px; }
-    .picker-warn { color: #b45309; font-weight: 600; }
+    .picker-hint { font-size: .68rem; color: var(--t-muted); margin-top: 4px; }
+    .picker-warn { color: var(--t-warn-fg); font-weight: 600; }
 
     /* --- history tray + its FAB: desktop-only. Nobody triages org-change
        history from a phone, and on mobile it stole bottom space and cluttered
@@ -1355,18 +1475,18 @@
 
     /* --- batch import preview --- */
     .bchips { display:inline-flex; align-items:center; gap:3px; flex-wrap:wrap; justify-content:flex-end; }
-    .bchip { display:inline-flex; align-items:center; gap:2px; background:#e0e7ff; color:#3730a3;
+    .bchip { display:inline-flex; align-items:center; gap:2px; background:var(--t-tint-2); color:var(--t-info-fg);
              border-radius:8px; padding:0 5px; font-size:0.6rem; font-weight:600; white-space:nowrap; }
-    .bchip-new { background:#dcfce7; color:#166534; border:1px dashed #4ade80; }
+    .bchip-new { background:var(--t-ok-bg); color:var(--t-ok-fg); border:1px dashed #4ade80; }
     .bchip button { background:none; border:none; color:inherit; cursor:pointer; font-weight:700; padding:0; }
-    .bchip-sel { font-size:0.62rem; padding:1px 2px; border:1px solid #cbd5e1; border-radius:3px; max-width:95px; }
-    .brow { border:1px solid #e2e8f0; border-radius:5px; padding:7px 9px; background:#fff; }
-    .bcell { border:1px solid #e2e8f0; background:#fff; border-radius:4px; padding:3px 5px; }
-    .bcell-new { border-color:#86efac; background:#f0fdf4; }
-    .bcell-ovr { border-color:#fca5a5; background:#fef2f2; }
-    .bcell input { width:100%; border:none; background:transparent; font-size:0.7rem; color:#0f172a; padding:1px 0; outline:none; }
+    .bchip-sel { font-size:0.62rem; padding:1px 2px; border:1px solid var(--t-line-2); border-radius:3px; max-width:95px; }
+    .brow { border:1px solid var(--t-line-2); border-radius:5px; padding:7px 9px; background:var(--t-surface); }
+    .bcell { border:1px solid var(--t-line-2); background:var(--t-surface); border-radius:4px; padding:3px 5px; }
+    .bcell-new { border-color:#86efac; background:var(--t-ok-bg); }
+    .bcell-ovr { border-color:var(--t-bad-fg); background:var(--t-bad-bg); }
+    .bcell input { width:100%; border:none; background:transparent; font-size:0.7rem; color:var(--t-ink); padding:1px 0; outline:none; }
     .bcell-lbl { font-size:0.58rem; font-weight:700; text-transform:uppercase; }
-    .bwas { font-size:0.6rem; color:#b91c1c; text-decoration:line-through; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .bwas { font-size:0.6rem; color:var(--t-bad-fg); text-decoration:line-through; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .bgrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:4px; }
 
     .btn-primary {
@@ -1395,18 +1515,18 @@
       padding: 2px;
       font-size: 0.68rem;
       border-radius: 3px;
-      border: 1px solid #e2e8f0;
-      color: #64748b;
+      border: 1px solid var(--t-line-2);
+      color: var(--t-muted);
     }
 
     .btn-icon-delete:hover {
-      background-color: #fef2f2;
-      border-color: #fca5a5;
+      background-color: var(--t-bad-bg);
+      border-color: var(--t-bad-fg);
       color: var(--danger-color);
     }
 
     .btn-icon-edit:hover {
-      background-color: #f0fdf4;
+      background-color: var(--t-ok-bg);
       border-color: #86efac;
       color: var(--success-color);
     }
@@ -1453,7 +1573,7 @@
     }
 
     input:checked + .slider {
-      background-color: #1f8a4c;
+      background-color: var(--t-ok-fg);
     }
 
     input:not(:checked) + .slider {
@@ -1517,7 +1637,7 @@
       font-weight: 600;
       letter-spacing: 0.04em;
       text-transform: uppercase;
-      color: #251d7f;
+      color: var(--t-brand);
     }
 
     .modal-close {
@@ -1544,7 +1664,7 @@
       display: block;
       font-size: 0.72rem;
       font-weight: 600;
-      color: #475569;
+      color: var(--t-muted);
       margin-bottom: 3px;
     }
 
@@ -1552,7 +1672,7 @@
       width: 100%;
       padding: 4px 8px;
       font-size: 0.78rem;
-      border: 1px solid #cbd5e1;
+      border: 1px solid var(--t-line-2);
       border-radius: 3px;
       background-color: var(--bg-white);
     }
@@ -1596,16 +1716,16 @@
       gap: 4px;
       padding: 4px 8px;
       border-bottom: 1px solid var(--neutral-border);
-      background-color: #f8fafc;
+      background-color: var(--t-surface-2);
     }
 
     .control-select {
       font-size: 0.72rem;
       padding: 2px 4px;
-      border: 1px solid #cbd5e1;
+      border: 1px solid var(--t-line-2);
       border-radius: 3px;
       background-color: var(--bg-white);
-      color: #334155;
+      color: var(--t-ink-2);
       cursor: pointer;
       outline: none;
     }
@@ -1648,11 +1768,11 @@
     .history-tray-title {
       font-size: 0.8rem;
       font-weight: 600;
-      color: #334155;
+      color: var(--t-ink-2);
     }
 
     .history-counter-badge {
-      background-color: #251d7f;
+      background-color: var(--t-brand);
       color: #ffffff;
       font-size: 0.72rem;
       font-weight: 600;
@@ -1675,7 +1795,7 @@
       flex: 1;
       padding: 15px 25px;
       overflow-y: auto;
-      background-color: #f8fafc;
+      background-color: var(--t-surface-2);
     }
 
     .history-log-list {
@@ -1686,12 +1806,12 @@
 
     .history-log-item {
       font-size: 0.8rem;
-      color: #475569;
+      color: var(--t-muted);
       display: flex;
       align-items: center;
       gap: 8px;
       padding: 4px 0;
-      border-bottom: 1px dashed #e2e8f0;
+      border-bottom: 1px dashed var(--t-line-2);
     }
 
     .history-log-timestamp {
@@ -1704,7 +1824,7 @@
     .history-empty-message {
       text-align: center;
       padding: 30px;
-      color: #94a3b8;
+      color: var(--t-faint);
       font-style: italic;
       font-size: 0.82rem;
     }
@@ -1712,7 +1832,7 @@
     /* Droppable card green dashed border indicator */
     .card.drag-hover-target {
       border: 2px dashed #1f8a4c !important;
-      background-color: #f0fdf4 !important;
+      background-color: var(--t-ok-bg) !important;
       transform: scale(1.02);
       box-shadow: 0 4px 10px rgba(31,138,76,0.1) !important;
     }
@@ -1798,14 +1918,14 @@
         display: flex; position: fixed; z-index: 1000;
         left: 0; right: 0; bottom: 0;
         padding: 6px 2px calc(4px + env(safe-area-inset-bottom, 0px));
-        background: #ffffff;
-        border-top: 1px solid #e8ebf3;
+        background: var(--t-surface);
+        border-top: 1px solid var(--t-line-2);
         box-shadow: 0 -2px 14px rgba(15, 23, 42, .06);
       }
       .m-tab {
         flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
         border: none; background: none; cursor: pointer; padding: 6px 2px;
-        color: #94a3b8;
+        color: var(--t-faint);
         font-size: .58rem; font-weight: 600; letter-spacing: .01em;
         transition: color .15s ease;
         -webkit-tap-highlight-color: transparent;
@@ -2075,7 +2195,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v9.1 Vercel API</span>
+      <span>v9.2 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -2089,6 +2209,7 @@
     </div>
 
     <div class="header-actions">
+      <button type="button" class="theme-toggle" id="themeToggle" onclick="toggleTheme()" aria-label="Toggle dark mode" title="Toggle dark mode">🌙</button>
       <!-- Database Connection Status Badge -->
       <div id="connectionStatus" class="status-badge">
         <div class="status-dot"></div>
@@ -2097,24 +2218,24 @@
 
       <!-- Directory / Map View Toggle -->
       <div class="view-toggle-container" style="display: flex; align-items: center; gap: 6px; user-select: none; margin-right: 12px;">
-        <span style="font-size: 0.72rem; font-weight: 600; color: #475569;">🗂️ Directory</span>
+        <span style="font-size: 0.72rem; font-weight: 600; color: var(--t-muted);">🗂️ Directory</span>
         <label class="switch">
           <input type="checkbox" id="viewToggle" onchange="__onViewToggle(this)">
           <span class="slider round"></span>
         </label>
-        <span style="font-size: 0.72rem; font-weight: 600; color: #475569;">🗺️ Map</span>
+        <span style="font-size: 0.72rem; font-weight: 600; color: var(--t-muted);">🗺️ Map</span>
       </div>
 
       <!-- Global Lock Toggle -->
       <div class="lock-toggle-container" style="display: flex; align-items: center; gap: 6px; user-select: none;">
-        <span style="font-size: 0.72rem; font-weight: 600; color: #475569; display: flex; align-items: center; gap: 3px;">
+        <span style="font-size: 0.72rem; font-weight: 600; color: var(--t-muted); display: flex; align-items: center; gap: 3px;">
           🔑 Unlock Editing
         </span>
         <label class="switch">
           <input type="checkbox" id="lockToggle" onchange="handleLockToggleClick(this)">
           <span class="slider round"></span>
         </label>
-        <span id="lockStatusText" style="font-size: 0.7rem; font-weight: 700; color: #dc2626;">LOCKED</span>
+        <span id="lockStatusText" style="font-size: 0.7rem; font-weight: 700; color: var(--t-bad-fg);">LOCKED</span>
       </div>
     </div>
   </header>
@@ -2199,7 +2320,7 @@
 
         <!-- District Manager sorting options -->
         <div class="column-action-bar">
-          <span style="font-size: 0.72rem; color: #64748b; font-weight: 500;">Sort:</span>
+          <span style="font-size: 0.72rem; color: var(--t-muted); font-weight: 500;">Sort:</span>
           <select class="control-select" id="coachSortSelect" onchange="changeCoachSort(this.value)" style="flex: 1; max-width: 140px;">
             <option value="none">Default (As Is)</option>
             <option value="asc">A-Z Name</option>
@@ -2261,7 +2382,7 @@
       <div class="column-action-bar" style="flex-direction: column; align-items: stretch; gap: 8px;">
         <!-- Sort block -->
         <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-          <span style="font-size: 0.72rem; color: #64748b; font-weight: 500;">Sort:</span>
+          <span style="font-size: 0.72rem; color: var(--t-muted); font-weight: 500;">Sort:</span>
           <select class="control-select" id="restaurantSortSelect" onchange="changeRestaurantSort(this.value)" style="flex: 1; max-width: 150px; padding: 3px 6px; font-size: 0.72rem;">
             <option value="none">Default (As Is)</option>
             <option value="name_asc" selected>Name (A-Z)</option>
@@ -2583,22 +2704,22 @@
         <button class="modal-close" onclick="closeExportModal()">&times;</button>
       </div>
       <div class="modal-body">
-        <p style="font-size:0.8rem; color:#475569; margin-bottom:10px;">
+        <p style="font-size:0.8rem; color:var(--t-muted); margin-bottom:10px;">
           Choose the columns to include. The export reflects whatever is currently
           shown in the Stores list (any active search or filter).
         </p>
         <div style="display:flex; gap:8px; margin-bottom:10px;">
           <button type="button" class="btn btn-xs" onclick="setAllExportCols(true)">Select all</button>
           <button type="button" class="btn btn-xs" onclick="setAllExportCols(false)">Clear</button>
-          <span id="exportCount" style="margin-left:auto; font-size:0.72rem; color:#64748b; align-self:center;"></span>
+          <span id="exportCount" style="margin-left:auto; font-size:0.72rem; color:var(--t-muted); align-self:center;"></span>
         </div>
-        <div id="exportColumnList" style="display:grid; grid-template-columns:1fr 1fr; gap:4px 14px; max-height:300px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px; padding:10px;">
+        <div id="exportColumnList" style="display:grid; grid-template-columns:1fr 1fr; gap:4px 14px; max-height:300px; overflow-y:auto; border:1px solid var(--t-line-2); border-radius:6px; padding:10px;">
           <!-- checkboxes injected -->
         </div>
-        <div id="exportStaffWrap" style="display:none; margin-top:10px; padding-top:10px; border-top:1px solid #e2e8f0;">
+        <div id="exportStaffWrap" style="display:none; margin-top:10px; padding-top:10px; border-top:1px solid var(--t-line-2);">
           <label style="display:flex; align-items:center; gap:8px; font-size:0.8rem; cursor:pointer;">
             <input type="checkbox" id="exportStaffToggle">
-            <span>Also include a <strong>Support Staff</strong> sheet <span id="exportStaffCount" style="color:#64748b;"></span></span>
+            <span>Also include a <strong>Support Staff</strong> sheet <span id="exportStaffCount" style="color:var(--t-muted);"></span></span>
           </label>
         </div>
       </div>
@@ -2627,7 +2748,7 @@
       
       <div class="modal-body" style="display: flex; flex-direction: column; gap: 15px;">
         <!-- Mode switch: import stores (existing) vs update manager contacts (new) -->
-        <div class="bimode-tabs" style="display: flex; gap: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
+        <div class="bimode-tabs" style="display: flex; gap: 6px; border-bottom: 1px solid var(--t-line-2); padding-bottom: 10px;">
           <button type="button" class="btn btn-xs bimode-tab bimode-on" data-mode="stores" onclick="setBatchMode('stores')">Import Stores</button>
           <button type="button" class="btn btn-xs bimode-tab" data-mode="managers" onclick="setBatchMode('managers')">Update Manager Contacts</button>
         </div>
@@ -2641,7 +2762,7 @@
             and previews everything. <strong>Nothing is written until you press Apply.</strong> Managers are
             added to each store's contact list; existing managers and the old GM/AGM fields are left as-is.
           </div>
-          <div id="mgrDropZone" style="border: 2px dashed #cbd5e1; border-radius: 10px; padding: 26px 14px; text-align: center; color: #64748b; cursor: pointer; background: #f8fafc; transition: all .15s;">
+          <div id="mgrDropZone" style="border: 2px dashed var(--t-line-2); border-radius: 10px; padding: 26px 14px; text-align: center; color: var(--t-muted); cursor: pointer; background: var(--t-surface-2); transition: all .15s;">
             <div style="font-size: 1.6rem;">📄</div>
             <div style="font-weight: 600; margin-top: 4px;">Drop .xlsx here, or click to choose</div>
             <div style="font-size: 0.72rem; margin-top: 2px;" id="mgrFileName">No file selected</div>
@@ -2649,7 +2770,7 @@
           </div>
           <div id="mgrPreview"></div>
           <div id="mgrApplyBar" style="display:none; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
-            <span id="mgrApplySummary" style="font-size: 0.8rem; color: #475569;"></span>
+            <span id="mgrApplySummary" style="font-size: 0.8rem; color: var(--t-muted);"></span>
             <button type="button" class="btn btn-success" id="mgrApplyBtn" onclick="applyManagerImport()">Apply to Database</button>
           </div>
         </div>
@@ -2661,13 +2782,13 @@
           <div style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 8px; line-height: 1.4; display: flex; flex-direction: column; gap: 4px;">
             <div>Copy and paste rows directly from Google Sheets or Excel. Supports automatic matching of the following column formats:</div>
             <ul style="padding-left: 15px; margin: 2px 0; display: flex; flex-direction: column; gap: 2px;">
-              <li><strong>1. Full GPS Format (10 columns):</strong><br><span style="color: #475569;">Entity &bull; Store Name &bull; Store Manager &bull; Address &bull; City &bull; State &bull; Zip &bull; Phone &bull; Latitude &bull; Longitude</span></li>
-              <li><strong>2. Compact GPS Format (7 columns):</strong><br><span style="color: #475569;">Store Name &bull; Address &bull; City &bull; State &bull; Zip &bull; Latitude &bull; Longitude</span></li>
-              <li><strong>3. Classic Format (7-8 columns):</strong><br><span style="color: #475569;">[Entity] &bull; Store Name &bull; Store Manager &bull; Address &bull; City &bull; State &bull; Zip &bull; Phone</span></li>
+              <li><strong>1. Full GPS Format (10 columns):</strong><br><span style="color: var(--t-muted);">Entity &bull; Store Name &bull; Store Manager &bull; Address &bull; City &bull; State &bull; Zip &bull; Phone &bull; Latitude &bull; Longitude</span></li>
+              <li><strong>2. Compact GPS Format (7 columns):</strong><br><span style="color: var(--t-muted);">Store Name &bull; Address &bull; City &bull; State &bull; Zip &bull; Latitude &bull; Longitude</span></li>
+              <li><strong>3. Classic Format (7-8 columns):</strong><br><span style="color: var(--t-muted);">[Entity] &bull; Store Name &bull; Store Manager &bull; Address &bull; City &bull; State &bull; Zip &bull; Phone</span></li>
             </ul>
-            <div style="margin-top: 4px;">With a header row, these are matched by name too: <span style="color: #475569;">Store # &bull; DBA Name &bull; Director &bull; District Manager &bull; Manager Cell &bull; AGM &bull; AGM Cell</span></div>
+            <div style="margin-top: 4px;">With a header row, these are matched by name too: <span style="color: var(--t-muted);">Store # &bull; DBA Name &bull; Director &bull; District Manager &bull; Manager Cell &bull; AGM &bull; AGM Cell</span></div>
           </div>
-          <textarea id="batchTextArea" rows="7" style="width: 100%; padding: 10px; font-family: monospace; font-size: 0.8rem; border: 1px solid #cbd5e1; border-radius: 4px; resize: vertical;" placeholder="Buddy's Enterprises Inc.	Paradise Quick Stop #02	Kabir Bodhani	521 E. Hwy 121	Lewisville	TX	75057	(972) 219-0096	32.9906715	-96.97804" oninput="previewBatchInput()"></textarea>
+          <textarea id="batchTextArea" rows="7" style="width: 100%; padding: 10px; font-family: monospace; font-size: 0.8rem; border: 1px solid var(--t-line-2); border-radius: 4px; resize: vertical;" placeholder="Buddy's Enterprises Inc.	Paradise Quick Stop #02	Kabir Bodhani	521 E. Hwy 121	Lewisville	TX	75057	(972) 219-0096	32.9906715	-96.97804" oninput="previewBatchInput()"></textarea>
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
@@ -2686,17 +2807,17 @@
         </div>
 
         <!-- Parse Preview Area -->
-        <div style="border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px; background-color: #f8fafc;">
-          <div style="font-size: 0.78rem; font-weight: 700; color: #475569; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
+        <div style="border: 1px solid var(--t-line-2); border-radius: 6px; padding: 12px; background-color: var(--t-surface-2);">
+          <div style="font-size: 0.78rem; font-weight: 700; color: var(--t-muted); margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
             <span>Import Preview</span>
             <span style="display: flex; gap: 6px; align-items: center;">
-              <span id="batchNewBadge" style="background-color: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 700;">0 new</span>
-              <span id="batchUpdBadge" style="background-color: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 700;">0 changed</span>
-              <span id="batchCountBadge" style="background-color: #e2e8f0; color: #475569; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 600;">0 rows</span>
+              <span id="batchNewBadge" style="background-color: var(--t-ok-bg); color: var(--t-ok-fg); padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 700;">0 new</span>
+              <span id="batchUpdBadge" style="background-color: var(--t-bad-bg); color: var(--t-bad-fg); padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 700;">0 changed</span>
+              <span id="batchCountBadge" style="background-color: var(--t-line); color: var(--t-muted); padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 600;">0 rows</span>
             </span>
           </div>
 
-          <div id="batchLegend" style="display: none; font-size: 0.68rem; color: #64748b; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px dashed #cbd5e1; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+          <div id="batchLegend" style="display: none; font-size: 0.68rem; color: var(--t-muted); margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px dashed var(--t-line-2); display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
             <span><span style="display:inline-block;width:9px;height:9px;background:#22c55e;border-radius:2px;margin-right:4px;"></span>New store</span>
             <span><span style="display:inline-block;width:9px;height:9px;background:#ef4444;border-radius:2px;margin-right:4px;"></span>Overwrites existing value</span>
             <span><span style="display:inline-block;width:9px;height:9px;background:#cbd5e1;border-radius:2px;margin-right:4px;"></span>Unchanged</span>
@@ -2704,18 +2825,18 @@
           </div>
 
           <div id="batchGeoWrap" style="display: none; margin-bottom: 10px;">
-            <div style="display: flex; justify-content: space-between; font-size: 0.7rem; font-weight: 600; color: #475569; margin-bottom: 3px;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.7rem; font-weight: 600; color: var(--t-muted); margin-bottom: 3px;">
               <span id="batchGeoLabel">Looking up coordinates…</span>
               <span id="batchGeoCount">0 / 0</span>
             </div>
-            <div style="width: 100%; height: 8px; background: #e2e8f0; border-radius: 999px; overflow: hidden;">
+            <div style="width: 100%; height: 8px; background: var(--t-line); border-radius: 999px; overflow: hidden;">
               <div id="batchGeoBar" style="width: 0%; height: 100%; background: linear-gradient(90deg,#3b82f6,#22c55e); transition: width 0.25s ease;"></div>
             </div>
           </div>
 
           <div style="max-height: 260px; overflow-y: auto;">
-            <div id="batchPreviewRows" style="font-size: 0.75rem; color: #64748b; line-height: 1.4;">
-              <p style="text-align: center; font-style: italic; color: #94a3b8; padding: 15px 0;">No raw store data pasted yet.</p>
+            <div id="batchPreviewRows" style="font-size: 0.75rem; color: var(--t-muted); line-height: 1.4;">
+              <p style="text-align: center; font-style: italic; color: var(--t-faint); padding: 15px 0;">No raw store data pasted yet.</p>
             </div>
           </div>
         </div>
@@ -2723,7 +2844,7 @@
       </div>
       
       <div class="modal-footer" style="gap: 8px;">
-        <label id="batchGeocodeLabel" style="display: flex; align-items: center; gap: 5px; font-size: 0.72rem; color: #475569; margin-right: auto; cursor: pointer;">
+        <label id="batchGeocodeLabel" style="display: flex; align-items: center; gap: 5px; font-size: 0.72rem; color: var(--t-muted); margin-right: auto; cursor: pointer;">
           <input type="checkbox" id="batchGeocodeToggle" checked>
           <span>Look up missing GPS coordinates</span>
         </label>
@@ -2739,16 +2860,16 @@
   <div class="modal-backdrop" id="lockConfirmModal">
     <div class="modal-card" style="max-width: 400px; padding: 15px;">
       <div class="modal-header" style="border-bottom: none; padding-bottom: 0;">
-        <h3 style="font-size: 0.95rem; color: #0f172a; font-weight: 700;">⚠️ Editing is Locked</h3>
+        <h3 style="font-size: 0.95rem; color: var(--t-ink); font-weight: 700;">⚠️ Editing is Locked</h3>
         <button class="modal-close" onclick="closeLockConfirmModal()">&times;</button>
       </div>
       <div class="modal-body" style="padding: 10px 0 15px 0; display: flex; flex-direction: column; gap: 10px;">
-        <p style="font-size: 0.78rem; color: #475569; line-height: 1.4; margin: 0;">
+        <p style="font-size: 0.78rem; color: var(--t-muted); line-height: 1.4; margin: 0;">
           Editing is currently locked. To make changes or unlock the dashboard, please enter the authorization password below:
         </p>
         <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px;">
           <input type="password" id="lockPasswordInput" placeholder="Enter password to unlock..." style="width: 100%; padding: 8px 12px; border: 1px solid var(--neutral-border); border-radius: 4px; font-size: 0.85rem;" onkeydown="handleLockPasswordKeydown(event)">
-          <div id="lockPasswordError" style="color: #dc2626; font-size: 0.72rem; display: none;">Incorrect password. Please try again.</div>
+          <div id="lockPasswordError" style="color: var(--t-bad-fg); font-size: 0.72rem; display: none;">Incorrect password. Please try again.</div>
         </div>
       </div>
       <div class="modal-footer" style="border-top: none; padding-top: 0; display: flex; justify-content: flex-end; gap: 6px;">
@@ -2759,6 +2880,26 @@
 
   <script>
     const API_BASE_URL = "https://alignment-api-khaki.vercel.app/api/dpm-alignment";
+
+    // ---- Theme (light default / dark) - remembered per device ----
+    function applyTheme(theme) {
+      const dark = theme === "dark";
+      if (dark) document.documentElement.setAttribute("data-theme", "dark");
+      else document.documentElement.removeAttribute("data-theme");
+      const btn = document.getElementById("themeToggle");
+      if (btn) { btn.textContent = dark ? "☀️" : "🌙"; btn.title = dark ? "Switch to light mode" : "Switch to dark mode"; btn.setAttribute("aria-pressed", dark ? "true" : "false"); }
+      try { localStorage.setItem("dpm_theme", dark ? "dark" : "light"); } catch (e) {}
+      // Keep the phone's browser chrome in step.
+      const m = document.querySelector('meta[name="theme-color"]:not([media])') || (() => { const x = document.createElement("meta"); x.name = "theme-color"; document.head.appendChild(x); return x; })();
+      m.content = dark ? "#120f3a" : "#1b1660";
+    }
+    function toggleTheme() {
+      applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark");
+    }
+    // Sync the button icon to whatever the pre-paint script chose.
+    document.addEventListener("DOMContentLoaded", () => {
+      applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light");
+    });
     // Touch device? Used to disable mouse-only behaviors (drag-and-drop) so taps work.
     // Prefer the pointer media query (most reliable), then maxTouchPoints.
     const __isTouchDevice = (typeof window !== "undefined") && (
@@ -2772,7 +2913,7 @@
        shared admins/appMeta node; every client compares on each load, and a
        stale client force-reloads itself with a cache-busting ?v= URL. This is
        the same approach FixMi uses so the two apps stay consistent. */
-    const APP_VERSION = "9.1";
+    const APP_VERSION = "9.2";
     let _versionPublished = false;
 
     function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
@@ -3896,7 +4037,7 @@
         if (isExpanded) {
           card.innerHTML = `
             <div class="card-header-row">
-              <div class="card-title">${escapeHtml(dir.name)} <span style="font-weight: normal; color: #3b82f6; font-size: 0.72rem; margin-left: 4px;">(Active)</span></div>
+              <div class="card-title">${escapeHtml(dir.name)} <span style="font-weight: normal; color: var(--t-info-fg); font-size: 0.72rem; margin-left: 4px;">(Active)</span></div>
               <div class="card-actions">
                 <button class="btn btn-icon btn-icon-edit" onclick="event.stopPropagation(); openEditModal('director', '${dirId}')">✎</button>
                 <button class="btn btn-icon btn-icon-delete" onclick="event.stopPropagation(); deleteEntry('director', '${dirId}')">✕</button>
@@ -3912,7 +4053,7 @@
           card.innerHTML = `
             <div class="card-header-row" style="margin-bottom: 0; align-items: center;">
               <div class="card-title">${escapeHtml(dir.name)}</div>
-              <span style="font-size: 0.72rem; color: #64748b; font-weight: 600;">Tap to open</span>
+              <span style="font-size: 0.72rem; color: var(--t-muted); font-weight: 600;">Tap to open</span>
             </div>
           `;
         }
@@ -3954,7 +4095,7 @@
         if (isExpanded) {
           card.innerHTML = `
             <div class="card-header-row">
-              <div class="card-title">${escapeHtml(tech.name)} <span style="font-weight: normal; color: #3b82f6; font-size: 0.72rem; margin-left: 4px;">(Active)</span></div>
+              <div class="card-title">${escapeHtml(tech.name)} <span style="font-weight: normal; color: var(--t-info-fg); font-size: 0.72rem; margin-left: 4px;">(Active)</span></div>
               <div class="card-actions">
                 <button class="btn btn-icon btn-icon-edit" onclick="event.stopPropagation(); openEditModal('technician', '${techId}')">✎</button>
                 <button class="btn btn-icon btn-icon-delete" onclick="event.stopPropagation(); deleteEntry('technician', '${techId}')">✕</button>
@@ -3970,7 +4111,7 @@
           card.innerHTML = `
             <div class="card-header-row" style="margin-bottom: 0; align-items: center;">
               <div class="card-title">${escapeHtml(tech.name)}</div>
-              <span style="font-size: 0.72rem; color: #64748b; font-weight: 600;">Tap to open</span>
+              <span style="font-size: 0.72rem; color: var(--t-muted); font-weight: 600;">Tap to open</span>
             </div>
           `;
         }
@@ -4076,7 +4217,7 @@
         const isExpanded = expandedEntityId === entId;
         const flag = normFlag[__normEntityName(ent.name)];
         const flagBadge = flag
-          ? `<span class="entity-dupe-flag" title="Possible duplicate — these spellings share the same name:&#10;• ${flag.spellings.map(s => s.replace(/"/g, '&quot;')).join('&#10;• ')}" style="margin-left:6px;font-size:0.68rem;font-weight:700;color:#b45309;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:1px 6px;cursor:help;">⚠ variant</span>`
+          ? `<span class="entity-dupe-flag" title="Possible duplicate — these spellings share the same name:&#10;• ${flag.spellings.map(s => s.replace(/"/g, '&quot;')).join('&#10;• ')}" style="margin-left:6px;font-size:0.68rem;font-weight:700;color:var(--t-warn-fg);background:var(--t-warn-bg);border:1px solid #fcd34d;border-radius:6px;padding:1px 6px;cursor:help;">⚠ variant</span>`
           : "";
         
         const card = document.createElement("div");
@@ -4109,7 +4250,7 @@
           card.innerHTML = `
             <div class="card-header-row" style="margin-bottom: 0; align-items: center;">
               <div class="card-title">${escapeHtml(ent.name)}${flagBadge}</div>
-              <span style="font-size: 0.72rem; color: #64748b; font-weight: 600;">Tap to open</span>
+              <span style="font-size: 0.72rem; color: var(--t-muted); font-weight: 600;">Tap to open</span>
             </div>
           `;
         }
@@ -4185,8 +4326,8 @@
           card.innerHTML = `
             <div class="card-header-row">
               <div class="card-title flex items-center gap-1.5" style="align-items: center;">
-                <span style="color: #94a3b8; font-family: monospace; font-size: 0.75rem; user-select: none;">⋮⋮</span>
-                ${escapeHtml(coach.name)} <span style="font-weight: normal; color: #3b82f6; font-size: 0.72rem; margin-left: 4px;">(Active)</span>
+                <span style="color: var(--t-faint); font-family: monospace; font-size: 0.75rem; user-select: none;">⋮⋮</span>
+                ${escapeHtml(coach.name)} <span style="font-weight: normal; color: var(--t-info-fg); font-size: 0.72rem; margin-left: 4px;">(Active)</span>
               </div>
               <div class="card-actions">
                 <button class="btn btn-icon btn-icon-edit" onclick="event.stopPropagation(); openEditModal('coach', '${coachId}')">✎</button>
@@ -4209,7 +4350,7 @@
                 <span style="color: #cbd5e1; font-family: monospace; font-size: 0.75rem; user-select: none;">⋮⋮</span>
                 ${escapeHtml(coach.name)}
               </div>
-              <span style="font-size: 0.72rem; color: #64748b; font-weight: 600;">Tap to open</span>
+              <span style="font-size: 0.72rem; color: var(--t-muted); font-weight: 600;">Tap to open</span>
             </div>
           `;
         }
@@ -4550,8 +4691,8 @@
           card.innerHTML = `
             <div class="card-header-row" style="display: flex; justify-content: space-between; align-items: center; width: 100%; overflow: hidden;">
               <div class="card-title flex items-center gap-1.5" style="align-items: center; overflow: hidden; display: flex; white-space: nowrap; max-width: calc(100% - 96px); flex: 1;">
-                <span style="color: #94a3b8; font-family: monospace; font-size: 0.75rem; user-select: none; flex-shrink: 0;">⋮⋮</span>
-                <span class="store-badge" style="background-color: #2563eb; color: #ffffff; font-size: 0.7rem; padding: 2px 5px; border-radius: 4px; font-weight: bold; font-family: monospace; flex-shrink: 0;">${escapeHtml(rest.storeNumber || '#')}</span>
+                <span style="color: var(--t-faint); font-family: monospace; font-size: 0.75rem; user-select: none; flex-shrink: 0;">⋮⋮</span>
+                <span class="store-badge" style="background-color: var(--t-info-fg); color: #ffffff; font-size: 0.7rem; padding: 2px 5px; border-radius: 4px; font-weight: bold; font-family: monospace; flex-shrink: 0;">${escapeHtml(rest.storeNumber || '#')}</span>
                 <span class="font-bold copy-field" onmousedown="event.stopPropagation();" onclick="event.stopPropagation(); copyField(this, this.getAttribute('data-copy'), 'Store name')" data-copy="${escapeHtml(rest.storeName || '')}" style="font-size: 0.88rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 1;">${escapeHtml(rest.storeName)}</span>
                 ${missingPill}
               </div>
@@ -4605,7 +4746,7 @@
                 if (cids.length) {
                   cids.forEach(cid => { if (areaCoaches[cid]) secTeam.push(cfRow("🧭", "DM", areaCoaches[cid].name, "District manager name", rmCoach(cid))); });
                 } else {
-                  secTeam.push(`<div class="card-detail cf-row" style="color:#94a3b8;"><span class="cf-icon">🧭</span><span class="cf-label">DM</span><span class="cf-value" style="color:#94a3b8;">${dirName ? "Direct report to " + escapeHtml(dirName) : "Unassigned"}</span></div>`);
+                  secTeam.push(`<div class="card-detail cf-row" style="color:var(--t-faint);"><span class="cf-icon">🧭</span><span class="cf-label">DM</span><span class="cf-value" style="color:var(--t-faint);">${dirName ? "Direct report to " + escapeHtml(dirName) : "Unassigned"}</span></div>`);
                 }
                 getTechIds(rest).forEach(tid => { if (repairTechnicians[tid]) secTeam.push(cfRow("🛠", "Tech", repairTechnicians[tid].name, "Repair tech name", rmTech(tid))); });
 
@@ -4629,7 +4770,7 @@
               <div class="card-title flex items-center gap-1.5" style="align-items: center; overflow: hidden; display: flex; white-space: nowrap; max-width: calc(100% - 50px); flex: 1;">
                 <span style="color: #cbd5e1; font-family: monospace; font-size: 0.75rem; user-select: none; flex-shrink: 0;">⋮⋮</span>
                 <span class="store-badge" style="font-family: monospace; font-size: 0.7rem; padding: 1px 4px; border-radius: 3px; font-weight: bold; flex-shrink: 0; overflow: hidden; white-space: nowrap;">${escapeHtml(rest.storeNumber || '#')}</span>
-                <span class="font-medium" style="font-size: 0.88rem; color: #334155; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 1;">${escapeHtml(getShortStoreName(rest.storeName, rest.storeNumber))}</span>
+                <span class="font-medium" style="font-size: 0.88rem; color: var(--t-ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 1;">${escapeHtml(getShortStoreName(rest.storeName, rest.storeNumber))}</span>
                 ${missingPillShort}
               </div>
               <span class="tile-chevron" aria-hidden="true">›</span>
@@ -5637,7 +5778,7 @@
     function openBatchImportModalUnlocked() {
       document.getElementById("batchTextArea").value = "";
       document.getElementById("batchCountBadge").innerText = "0 rows";
-      document.getElementById("batchPreviewRows").innerHTML = `<p style="text-align: center; font-style: italic; color: #94a3b8; padding: 15px 0;">No raw store data pasted yet.</p>`;
+      document.getElementById("batchPreviewRows").innerHTML = `<p style="text-align: center; font-style: italic; color: var(--t-faint); padding: 15px 0;">No raw store data pasted yet.</p>`;
       document.getElementById("batchImportBtn").disabled = true;
 
       // Reset diff-preview state from any previous run.
@@ -5832,13 +5973,13 @@
             parseAndPreviewManagers(rows);
           } catch (err) {
             document.getElementById("mgrPreview").innerHTML =
-              `<div style="color:#c0392b; font-size:0.8rem;">Couldn't read that file: ${escapeHtml(err.message)}</div>`;
+              `<div style="color:var(--t-bad-fg); font-size:0.8rem;">Couldn't read that file: ${escapeHtml(err.message)}</div>`;
           }
         };
         reader.readAsArrayBuffer(file);
       }, () => {
         document.getElementById("mgrPreview").innerHTML =
-          `<div style="color:#c0392b; font-size:0.8rem;">Couldn't load the spreadsheet reader. Check your connection and retry.</div>`;
+          `<div style="color:var(--t-bad-fg); font-size:0.8rem;">Couldn't load the spreadsheet reader. Check your connection and retry.</div>`;
       });
     }
 
@@ -5952,27 +6093,27 @@
 
       const TITLES = ["GM", "AGM", "In Training", "Other"];
       const rowInputs = (i, m) => `
-            <input value="${escapeHtml(m.name)}" oninput="editMgrRow(${i},'name',this.value)" style="flex:2; min-width:0; padding:3px 6px; font-size:0.74rem; border:1px solid #cbd5e1; border-radius:4px;" aria-label="Name">
-            <select onchange="editMgrRow(${i},'title',this.value)" style="flex:0 0 92px; padding:3px 4px; font-size:0.74rem; border:1px solid #cbd5e1; border-radius:4px;" aria-label="Title">
+            <input value="${escapeHtml(m.name)}" oninput="editMgrRow(${i},'name',this.value)" style="flex:2; min-width:0; padding:3px 6px; font-size:0.74rem; border:1px solid var(--t-line-2); border-radius:4px;" aria-label="Name">
+            <select onchange="editMgrRow(${i},'title',this.value)" style="flex:0 0 92px; padding:3px 4px; font-size:0.74rem; border:1px solid var(--t-line-2); border-radius:4px;" aria-label="Title">
               ${TITLES.map(t => `<option ${m.title===t?"selected":""}>${t}</option>`).join("")}
             </select>
-            <input value="${escapeHtml(m.phone)}" oninput="editMgrRow(${i},'phone',this.value)" style="flex:0 0 108px; padding:3px 6px; font-size:0.74rem; font-family:monospace; border:1px solid #cbd5e1; border-radius:4px;" aria-label="Phone">
-            <button onclick="removeMgrRow(${i})" title="Remove this row" style="flex:0 0 auto; background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; border-radius:4px; cursor:pointer; padding:2px 7px; font-weight:700;">✕</button>`;
+            <input value="${escapeHtml(m.phone)}" oninput="editMgrRow(${i},'phone',this.value)" style="flex:0 0 108px; padding:3px 6px; font-size:0.74rem; font-family:monospace; border:1px solid var(--t-line-2); border-radius:4px;" aria-label="Phone">
+            <button onclick="removeMgrRow(${i})" title="Remove this row" style="flex:0 0 auto; background:var(--t-bad-bg); color:var(--t-bad-fg); border:1px solid var(--t-bad-fg); border-radius:4px; cursor:pointer; padding:2px 7px; font-weight:700;">✕</button>`;
 
       // Pre-compute diff counts for the header.
       let nNew = 0, nUpd = 0, nCur = 0;
       matched.forEach(m => { const d = mgrDiffRow(m); if (d.status === "new") nNew++; else if (d.status === "update") nUpd++; else nCur++; });
-      let html = `<div style="font-size:0.82rem; font-weight:700; color:#0f172a; margin:6px 0; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-        <span style="color:#1e40af;">+ ${nNew} new</span>
-        <span style="color:#92400e;">↻ ${nUpd} update${nUpd===1?"":"s"}</span>
-        <span style="color:#166534;">✓ ${nCur} already current</span>
-        <span style="font-weight:500; color:#64748b;">across ${Object.keys(byStore).length} store${Object.keys(byStore).length===1?"":"s"} — only new/updated rows are written</span>
+      let html = `<div style="font-size:0.82rem; font-weight:700; color:var(--t-ink); margin:6px 0; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <span style="color:var(--t-info-fg);">+ ${nNew} new</span>
+        <span style="color:var(--t-warn-fg);">↻ ${nUpd} update${nUpd===1?"":"s"}</span>
+        <span style="color:var(--t-ok-fg);">✓ ${nCur} already current</span>
+        <span style="font-weight:500; color:var(--t-muted);">across ${Object.keys(byStore).length} store${Object.keys(byStore).length===1?"":"s"} — only new/updated rows are written</span>
       </div>
-      <label style="display:flex; align-items:center; gap:6px; font-size:0.72rem; color:#475569; margin:0 0 6px; cursor:pointer;">
+      <label style="display:flex; align-items:center; gap:6px; font-size:0.72rem; color:var(--t-muted); margin:0 0 6px; cursor:pointer;">
         <input type="checkbox" ${_mgrRemoveStale ? "checked" : ""} onchange="_mgrRemoveStale=this.checked; renderMgrPreview();">
         <span>Also remove existing contacts who are <strong>not</strong> in this sheet (treat sheet as the current roster)</span>
       </label>`;
-      html += `<div style="max-height:260px; overflow:auto; border:1px solid #e2e8f0; border-radius:6px;">`;
+      html += `<div style="max-height:260px; overflow:auto; border:1px solid var(--t-line-2); border-radius:6px;">`;
       // Stores in number order too.
       Object.keys(byStore).sort((a, b) => {
         const na = parseInt((restaurants[a].storeNumber || "").replace(/\D/g, ""), 10) || 0;
@@ -5981,7 +6122,7 @@
       }).forEach(sid => {
         const r = restaurants[sid];
         html += `<div style="padding:6px 8px; border-bottom:1px solid #f1f5f9;">
-          <div style="font-weight:700; font-size:0.76rem; color:#251d7f; margin-bottom:4px;">[${escapeHtml(r.storeNumber||"#")}] ${escapeHtml(r.storeName||"")}</div>`;
+          <div style="font-weight:700; font-size:0.76rem; color:var(--t-brand); margin-bottom:4px;">[${escapeHtml(r.storeNumber||"#")}] ${escapeHtml(r.storeName||"")}</div>`;
         byStore[sid].forEach(i => {
           const m = rows[i];
           const pct = Math.round((m.conf || 0) * 100);
@@ -6002,10 +6143,10 @@
             const chg = [];
             if (mgrDigits(dfx.was.phone) !== mgrDigits(m.phone)) chg.push(`phone was ${escapeHtml(dfx.was.phone || "blank")}`);
             if ((dfx.was.title || "").toLowerCase() !== (m.title || "").toLowerCase()) chg.push(`title was ${escapeHtml(dfx.was.title || "blank")}`);
-            html += `<div style="font-size:0.66rem; color:#92400e; margin:-1px 0 4px 2px;">${chg.join(" · ")}</div>`;
+            html += `<div style="font-size:0.66rem; color:var(--t-warn-fg); margin:-1px 0 4px 2px;">${chg.join(" · ")}</div>`;
           }
           if (m.conf < 0.8) {
-            html += `<div style="font-size:0.66rem; color:#92400e; margin:-1px 0 4px 2px;">from sheet: "${escapeHtml(m.storeDesc || "")}" — <a href="#" onclick="event.preventDefault(); unassignMgrStore(${i})" style="color:#b45309;">not right? move to review</a></div>`;
+            html += `<div style="font-size:0.66rem; color:var(--t-warn-fg); margin:-1px 0 4px 2px;">from sheet: "${escapeHtml(m.storeDesc || "")}" — <a href="#" onclick="event.preventDefault(); unassignMgrStore(${i})" style="color:var(--t-warn-fg);">not right? move to review</a></div>`;
           }
         });
         // Existing contacts at this store that are NOT in the sheet.
@@ -6013,21 +6154,21 @@
         const inSheet = byStore[sid].map(i => rows[i]);
         const stale = exist.filter(e => !inSheet.some(m => mgrSamePerson(e.name, m.name)));
         if (stale.length) {
-          html += `<div style="font-size:0.66rem; color:#64748b; margin:2px 0 2px 2px;">Not in this sheet (${_mgrRemoveStale ? "will be removed" : "kept"}): ${stale.map(e => escapeHtml(e.name || "?")).join(", ")}</div>`;
+          html += `<div style="font-size:0.66rem; color:var(--t-muted); margin:2px 0 2px 2px;">Not in this sheet (${_mgrRemoveStale ? "will be removed" : "kept"}): ${stale.map(e => escapeHtml(e.name || "?")).join(", ")}</div>`;
         }
         html += `</div>`;
       });
-      if (!matched.length) html += `<div style="padding:10px; font-size:0.76rem; color:#64748b;">No contacts matched yet — assign stores below.</div>`;
+      if (!matched.length) html += `<div style="padding:10px; font-size:0.76rem; color:var(--t-muted);">No contacts matched yet — assign stores below.</div>`;
       html += `</div>`;
 
       // Unmatched: assignable, not skipped.
       if (unmatched.length) {
-        html += `<div style="font-size:0.82rem; font-weight:700; color:#b45309; margin:12px 0 4px;">⚠ ${unmatched.length} contact${unmatched.length===1?"":"s"} need a store <span style="font-weight:500; color:#92400e;">— pick one or type its number; unassigned rows are not written</span></div>`;
-        html += `<div style="max-height:260px; overflow:auto; border:1px solid #fde68a; border-radius:6px; background:#fffbeb; padding:6px 8px;">`;
+        html += `<div style="font-size:0.82rem; font-weight:700; color:var(--t-warn-fg); margin:12px 0 4px;">⚠ ${unmatched.length} contact${unmatched.length===1?"":"s"} need a store <span style="font-weight:500; color:var(--t-warn-fg);">— pick one or type its number; unassigned rows are not written</span></div>`;
+        html += `<div style="max-height:260px; overflow:auto; border:1px solid var(--t-warn-fg); border-radius:6px; background:var(--t-warn-bg); padding:6px 8px;">`;
         rows.forEach((m, i) => {
           if (m.removed || m.storeId) return;
-          html += `<div style="padding:5px 0; border-bottom:1px dashed #fde68a;">
-            <div style="font-size:0.7rem; color:#92400e; margin-bottom:3px;">From sheet: "${escapeHtml(m.storeDesc || "")}"</div>
+          html += `<div style="padding:5px 0; border-bottom:1px dashed var(--t-warn-fg);">
+            <div style="font-size:0.7rem; color:var(--t-warn-fg); margin-bottom:3px;">From sheet: "${escapeHtml(m.storeDesc || "")}"</div>
             <div style="display:flex; gap:4px; align-items:center; margin-bottom:3px;">${rowInputs(i, m)}</div>
             <div style="display:flex; gap:4px; align-items:center;">
               <input placeholder="type store # or name…" oninput="mgrSearchAssign(${i}, this.value, this)" style="flex:1; min-width:0; padding:3px 6px; font-size:0.74rem; border:1px solid #f59e0b; border-radius:4px;" aria-label="Search store">
@@ -6632,7 +6773,7 @@
       badge.innerText = `${batchRows.length} rows`;
 
       if (batchRows.length === 0) {
-        previewDiv.innerHTML = `<p style="text-align: center; font-style: italic; color: #94a3b8; padding: 15px 0;">No raw store data pasted yet.</p>`;
+        previewDiv.innerHTML = `<p style="text-align: center; font-style: italic; color: var(--t-faint); padding: 15px 0;">No raw store data pasted yet.</p>`;
         importBtn.disabled = true;
         legend.style.display = "none";
         newBadge.innerText = "0 new";
@@ -6654,15 +6795,15 @@
       batchRows.forEach((row, idx) => {
         const stripe = row.skip ? "#cbd5e1" : (row.isNew ? "#22c55e" : "#ef4444");
         const tag = row.isNew
-          ? `<span class="bchip" style="background:#dcfce7;color:#166534;">NEW</span>`
-          : `<span class="bchip" style="background:#fee2e2;color:#991b1b;">EXISTING</span>`;
+          ? `<span class="bchip" style="background:var(--t-ok-bg);color:var(--t-ok-fg);">NEW</span>`
+          : `<span class="bchip" style="background:var(--t-bad-bg);color:var(--t-bad-fg);">EXISTING</span>`;
 
         html += `
-          <div class="brow" style="border-left:4px solid ${stripe};${row.skip ? 'opacity:.5;background:#f8fafc;' : ''}">
+          <div class="brow" style="border-left:4px solid ${stripe};${row.skip ? 'opacity:.5;background:var(--t-surface-2);' : ''}">
             <div style="display:flex;align-items:center;gap:7px;margin-bottom:5px;flex-wrap:wrap;">
               <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
                 <input type="checkbox" ${row.skip ? "" : "checked"} onchange="batchToggleSkip(${idx}, this.checked)">
-                <span style="font-weight:700;color:#0f172a;font-size:0.76rem;">${escapeHtml(row.data.storeNumber || '#')}</span>
+                <span style="font-weight:700;color:var(--t-ink);font-size:0.76rem;">${escapeHtml(row.data.storeNumber || '#')}</span>
               </label>
               ${tag}${batchGeoBadge(row)}
               <span style="margin-left:auto;">${batchRelChips(row, idx)}</span>
@@ -6676,12 +6817,12 @@
     }
 
     function batchGeoBadge(row) {
-      if (row.geo === "have")    return `<span title="Coordinates present" style="font-size:0.62rem;color:#166534;">🌐 GPS</span>`;
-      if (row.geo === "unchanged") return `<span title="Address unchanged - keeping existing coordinates, no lookup" style="font-size:0.62rem;color:#64748b;">🌐 unchanged</span>`;
-      if (row.geo === "found")   return `<span title="Coordinates looked up" style="font-size:0.62rem;color:#166534;">🌐 found</span>`;
-      if (row.geo === "failed")  return `<span title="Lookup failed - store will not show on the map" style="font-size:0.62rem;color:#b45309;">⚠ no GPS</span>`;
-      if (row.geo === "looking") return `<span style="font-size:0.62rem;color:#64748b;">⏳ …</span>`;
-      return `<span title="Will look up on import" style="font-size:0.62rem;color:#94a3b8;">🌐 pending</span>`;
+      if (row.geo === "have")    return `<span title="Coordinates present" style="font-size:0.62rem;color:var(--t-ok-fg);">🌐 GPS</span>`;
+      if (row.geo === "unchanged") return `<span title="Address unchanged - keeping existing coordinates, no lookup" style="font-size:0.62rem;color:var(--t-muted);">🌐 unchanged</span>`;
+      if (row.geo === "found")   return `<span title="Coordinates looked up" style="font-size:0.62rem;color:var(--t-ok-fg);">🌐 found</span>`;
+      if (row.geo === "failed")  return `<span title="Lookup failed - store will not show on the map" style="font-size:0.62rem;color:var(--t-warn-fg);">⚠ no GPS</span>`;
+      if (row.geo === "looking") return `<span style="font-size:0.62rem;color:var(--t-muted);">⏳ …</span>`;
+      return `<span title="Will look up on import" style="font-size:0.62rem;color:var(--t-faint);">🌐 pending</span>`;
     }
 
     // Chips for coaches + director + entity, marking anything that will be created.
@@ -7614,12 +7755,12 @@
       document.getElementById("callChooserTitle").innerText = "Call — " + (r.storeName || "Store");
       document.getElementById("callChooserList").innerHTML = opts.map(o => `
         <a href="tel:${escapeHtml((o.phone||'').replace(/[^0-9]/g,''))}" onclick="closeCallChooser()"
-           style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:12px 14px; border:1px solid #e2e8f0; border-radius:10px; text-decoration:none; color:#1e293b;">
+           style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:12px 14px; border:1px solid var(--t-line-2); border-radius:10px; text-decoration:none; color:var(--t-ink);">
           <span style="display:flex; flex-direction:column; min-width:0;">
             <span style="font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(o.label)}</span>
-            <span style="font-size:0.72rem; color:#64748b;">${escapeHtml(o.sub)}</span>
+            <span style="font-size:0.72rem; color:var(--t-muted);">${escapeHtml(o.sub)}</span>
           </span>
-          <span style="font-family:monospace; color:#251d7f; font-weight:600; flex-shrink:0;">📞 ${escapeHtml(o.phone)}</span>
+          <span style="font-family:monospace; color:var(--t-brand); font-weight:600; flex-shrink:0;">📞 ${escapeHtml(o.phone)}</span>
         </a>`).join("");
       document.getElementById("callChooserModal").classList.add("active");
     }
@@ -8397,11 +8538,11 @@
         const inFilter = !__mapActiveGroup || keys.indexOf(__mapActiveGroup) !== -1;
         const row = (label, val) => val ? `<div style="margin:2px 0;font-size:12px;"><strong>${escapeHtml(label)}:</strong> ${escapeHtml(String(val))}</div>` : "";
         return `
-          <div style="${isPrimary ? "" : "margin-top:8px;padding-top:8px;border-top:1px dashed #cbd5e1;"}${inFilter ? "" : "opacity:.72;"}">
+          <div style="${isPrimary ? "" : "margin-top:8px;padding-top:8px;border-top:1px dashed var(--t-line-2);"}${inFilter ? "" : "opacity:.72;"}">
             <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap;">
-              <span style="background:#251d7f;color:#fff;font-size:11px;padding:1px 5px;border-radius:4px;font-weight:bold;font-family:monospace;">${escapeHtml(r.storeNumber || "#")}</span>
+              <span style="background:var(--t-brand-fill);color:#fff;font-size:11px;padding:1px 5px;border-radius:4px;font-weight:bold;font-family:monospace;">${escapeHtml(r.storeNumber || "#")}</span>
               <span style="font-weight:700;font-size:13px;">${escapeHtml(r.storeName || "Store")}</span>
-              ${!inFilter ? `<span style="font-size:10px;color:#b45309;background:#fef3c7;padding:1px 6px;border-radius:999px;">outside current filter</span>` : ""}
+              ${!inFilter ? `<span style="font-size:10px;color:var(--t-warn-fg);background:var(--t-warn-bg);padding:1px 6px;border-radius:999px;">outside current filter</span>` : ""}
             </div>
             ${row("Mgr", r.storeManager)}
             ${row("Entity", entName)}
@@ -8419,7 +8560,7 @@
       const members = (siteMembers && siteMembers.length > 1) ? siteMembers : [restId];
       const others = members.filter(id => id !== restId && restaurants[id]);
       const siteHeader = others.length
-        ? `<div style="font-size:11px;font-weight:700;color:#0369a1;background:#e0f2fe;padding:3px 8px;border-radius:6px;margin-bottom:6px;">📍 ${members.length} stores at this location</div>`
+        ? `<div style="font-size:11px;font-weight:700;color:var(--t-info-fg);background:var(--t-info-bg);padding:3px 8px;border-radius:6px;margin-bottom:6px;">📍 ${members.length} stores at this location</div>`
         : "";
       return `
         <div style="min-width:220px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;">
@@ -8430,7 +8571,7 @@
         </div>`;
 
       function row_addr(addr) {
-        return addr ? `<div style="margin:0 0 4px;font-size:12px;color:#475569;">${escapeHtml(addr)}</div>` : "";
+        return addr ? `<div style="margin:0 0 4px;font-size:12px;color:var(--t-muted);">${escapeHtml(addr)}</div>` : "";
       }
     }
 
@@ -8537,7 +8678,7 @@
         }
         html += `</div>`;
       });
-      rail.innerHTML = html || '<div style="color:#94a3b8;font-size:0.8rem;padding:12px;">No stores match.</div>';
+      rail.innerHTML = html || '<div style="color:var(--t-faint);font-size:0.8rem;padding:12px;">No stores match.</div>';
     }
 
     function __mapRenderLegend() {
