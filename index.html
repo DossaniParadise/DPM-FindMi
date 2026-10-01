@@ -1084,6 +1084,8 @@
     .theme-toggle:hover { background: rgba(255,255,255,0.18); transform: rotate(-12deg); }
     @media (max-width: 768px) { .theme-toggle { display: inline-flex !important; width: 38px; height: 38px; } }
 
+    .dpm-radar-tiles { pointer-events: none; }
+
     /* Copy toast */
     #copyToast {
       position: fixed; left: 50%; bottom: 88px; transform: translateX(-50%) translateY(12px);
@@ -2195,7 +2197,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v9.3 Vercel API</span>
+      <span>v9.4 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -2486,6 +2488,16 @@
           <span style="color:#e8e6ff;font-size:0.78rem;font-weight:600;line-height:1.25;">
             Street map
             <span style="display:block;color:#8b86c8;font-size:0.68rem;font-weight:500;">Off = satellite imagery</span>
+          </span>
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;margin-top:12px;cursor:pointer;user-select:none;">
+          <span class="switch">
+            <input type="checkbox" id="mapRadar" onchange="__mapSetRadar(this.checked)">
+            <span class="slider round"></span>
+          </span>
+          <span style="color:#e8e6ff;font-size:0.78rem;font-weight:600;line-height:1.25;">
+            Weather radar
+            <span style="display:block;color:#8b86c8;font-size:0.68rem;font-weight:500;" id="mapRadarNote">Live NEXRAD precipitation, refreshes every 5 min</span>
           </span>
         </label>
       </div>
@@ -2923,7 +2935,7 @@
        shared admins/appMeta node; every client compares on each load, and a
        stale client force-reloads itself with a cache-busting ?v= URL. This is
        the same approach FixMi uses so the two apps stay consistent. */
-    const APP_VERSION = "9.3";
+    const APP_VERSION = "9.4";
     let _versionPublished = false;
 
     function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
@@ -8122,6 +8134,36 @@
     function __mapBasemapChoice() {
       try { return localStorage.getItem("dpm_basemap") === "street" ? "street" : "satellite"; } catch (e) { return "satellite"; }
     }
+    // ---- Weather radar overlay (free, no key): Iowa State Mesonet NEXRAD
+    // base-reflectivity composite, as a standard XYZ tile layer so it zooms with
+    // the map. Radar updates ~every 5 min, so the URL carries a 5-minute time
+    // bucket that busts Leaflet's and the browser's tile cache on each refresh.
+    let __mapRadarLayer = null, __mapRadarTimer = null;
+    function __mapRadarUrl() {
+      const bucket = Math.floor(Date.now() / 300000);   // changes every 5 minutes
+      return "https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png?t=" + bucket;
+    }
+    function __mapBuildRadar() {
+      return L.tileLayer(__mapRadarUrl(), {
+        attribution: 'Radar &copy; <a href="https://mesonet.agron.iastate.edu/" target="_blank" rel="noopener">Iowa State Mesonet</a> / NOAA',
+        opacity: 0.6, maxZoom: 19, keepBuffer: 2, updateWhenIdle: false, updateWhenZooming: false,
+        className: "dpm-radar-tiles", zIndex: 650   // above basemaps, below pins/popups
+      });
+    }
+    window.__mapSetRadar = function (on) {
+      if (!__mapView) return;
+      if (on) {
+        if (!__mapRadarLayer) __mapRadarLayer = __mapBuildRadar();
+        if (!__mapView.hasLayer(__mapRadarLayer)) __mapRadarLayer.addTo(__mapView);
+        // Swap in fresh tiles every 5 minutes while it's on.
+        clearInterval(__mapRadarTimer);
+        __mapRadarTimer = setInterval(() => { if (__mapRadarLayer && __mapRadarLayer.setUrl) __mapRadarLayer.setUrl(__mapRadarUrl()); }, 300000);
+      } else {
+        clearInterval(__mapRadarTimer); __mapRadarTimer = null;
+        if (__mapRadarLayer && __mapView.hasLayer(__mapRadarLayer)) __mapView.removeLayer(__mapRadarLayer);
+      }
+    };
+
     window.__mapSetBasemap = function (which) {
       const next = which === "street" ? "street" : "satellite";
       try { localStorage.setItem("dpm_basemap", next); } catch (e) {}
@@ -8761,6 +8803,9 @@
         return;
       }
       if (__mapView) { try { __mapView.remove(); } catch (e) {} __mapView = null; }
+      // Radar is per-session: clear it on a rebuild so a new map starts clean.
+      clearInterval(__mapRadarTimer); __mapRadarTimer = null; __mapRadarLayer = null;
+      const rsw = document.getElementById("mapRadar"); if (rsw) rsw.checked = false;
       __mapMarkers = [];
       __mapVariantReportCache = null; // rebuild variant report for this render
 
