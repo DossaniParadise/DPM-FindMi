@@ -2195,7 +2195,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v9.2 Vercel API</span>
+      <span>v9.3 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -2476,6 +2476,16 @@
           <span style="color:#e8e6ff;font-size:0.78rem;font-weight:600;line-height:1.25;">
             Zoom to filter
             <span style="display:block;color:#8b86c8;font-size:0.68rem;font-weight:500;">Off = stay at all-stores view</span>
+          </span>
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;margin-top:12px;cursor:pointer;user-select:none;">
+          <span class="switch">
+            <input type="checkbox" id="mapStreetView" onchange="__mapSetBasemap(this.checked ? 'street' : 'satellite')">
+            <span class="slider round"></span>
+          </span>
+          <span style="color:#e8e6ff;font-size:0.78rem;font-weight:600;line-height:1.25;">
+            Street map
+            <span style="display:block;color:#8b86c8;font-size:0.68rem;font-weight:500;">Off = satellite imagery</span>
           </span>
         </label>
       </div>
@@ -2913,7 +2923,7 @@
        shared admins/appMeta node; every client compares on each load, and a
        stale client force-reloads itself with a cache-busting ?v= URL. This is
        the same approach FixMi uses so the two apps stay consistent. */
-    const APP_VERSION = "9.2";
+    const APP_VERSION = "9.3";
     let _versionPublished = false;
 
     function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
@@ -8105,6 +8115,20 @@
 
     /* ===== KIOSK MAP FEATURE (ported) ===== */
     let __mapView = null;          // Leaflet map instance
+
+    // CARTO Basemaps API key (Dossani Paradise). Raster tiles need it in the URL.
+    const CARTO_BASEMAP_KEY = "cb1_46fc_1_bd905fb18154240ff5acecf7";
+    const __mapBasemaps = { satellite: null, street: null };
+    function __mapBasemapChoice() {
+      try { return localStorage.getItem("dpm_basemap") === "street" ? "street" : "satellite"; } catch (e) { return "satellite"; }
+    }
+    window.__mapSetBasemap = function (which) {
+      const next = which === "street" ? "street" : "satellite";
+      try { localStorage.setItem("dpm_basemap", next); } catch (e) {}
+      if (!__mapView) return;
+      Object.keys(__mapBasemaps).forEach(k => { const g = __mapBasemaps[k]; if (g && __mapView.hasLayer(g)) __mapView.removeLayer(g); });
+      if (__mapBasemaps[next]) __mapBasemaps[next].addTo(__mapView);
+    };
     let __mapMarkers = [];         // {marker, restId, groupKey}
     let __mapColorBy = "brand";    // brand | coach | director | entity | tech
     let __mapActiveGroup = null;   // groupKey isolated via legend, or null
@@ -8798,24 +8822,35 @@
       });
       __mapView = map;
 
-      // Satellite imagery base.
-      L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
-        attribution: "Tiles &copy; Esri", maxZoom: 19, keepBuffer: 4,
-        updateWhenIdle: false, updateWhenZooming: false
-      }).addTo(map);
+      // ---- Two basemaps, switchable. Default: satellite. Choice is remembered
+      // per device. PERF on all tile layers: updateWhenZooming:false stops
+      // Leaflet requesting intermediate tiles mid-zoom; keepBuffer holds tiles
+      // just outside the viewport so short pans don't re-fetch.
+      const tileOpts = { maxZoom: 19, keepBuffer: 4, updateWhenIdle: false, updateWhenZooming: false };
 
-      // Labels/borders + highways. PERF: updateWhenZooming:false stops Leaflet
-      // requesting intermediate tiles mid-zoom - the single biggest source of
-      // wasted requests on higher-latency WiFi. keepBuffer holds tiles just
-      // outside the viewport so short pans don't re-fetch.
-      L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}", {
-        maxZoom: 19, opacity: 0.92, keepBuffer: 4, className: "dpm-ref-tiles",
-        updateWhenIdle: false, updateWhenZooming: false
-      }).addTo(map);
-      L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}", {
-        maxZoom: 19, opacity: 0.88, keepBuffer: 4, className: "dpm-road-tiles",
-        updateWhenIdle: false, updateWhenZooming: false
-      }).addTo(map);
+      // Satellite: Esri imagery + label/road reference overlays.
+      __mapBasemaps.satellite = L.layerGroup([
+        L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+          Object.assign({ attribution: "Tiles &copy; Esri" }, tileOpts)),
+        L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
+          Object.assign({ opacity: 0.92, className: "dpm-ref-tiles" }, tileOpts)),
+        L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}",
+          Object.assign({ opacity: 0.88, className: "dpm-road-tiles" }, tileOpts))
+      ]);
+
+      // Street: CARTO Voyager raster basemap (keyed - removes the watermark).
+      // CARTO requires their + OpenStreetMap attribution to stay visible.
+      __mapBasemaps.street = L.layerGroup([
+        L.tileLayer("https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=" + CARTO_BASEMAP_KEY,
+          Object.assign({
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>',
+            subdomains: "abcd"
+          }, tileOpts))
+      ]);
+
+      __mapBasemaps[__mapBasemapChoice()].addTo(map);
+      const sv = document.getElementById("mapStreetView");
+      if (sv) sv.checked = __mapBasemapChoice() === "street";
 
       // Make the zoom control finger-friendly.
       try {
