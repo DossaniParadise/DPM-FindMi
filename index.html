@@ -2197,7 +2197,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v9.4 Vercel API</span>
+      <span>v9.5 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -2935,7 +2935,7 @@
        shared admins/appMeta node; every client compares on each load, and a
        stale client force-reloads itself with a cache-busting ?v= URL. This is
        the same approach FixMi uses so the two apps stay consistent. */
-    const APP_VERSION = "9.4";
+    const APP_VERSION = "9.5";
     let _versionPublished = false;
 
     function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
@@ -7482,8 +7482,6 @@
     // ---- Export to Excel ----
     // Each column: a label and a getter that turns a store record into a cell
     // value. Relationship columns resolve to readable names, not internal IDs.
-    // Cell numbers are included because this is an authenticated export the user
-    // explicitly builds - unlike the store card, which hides them.
     const EXPORT_COLUMNS = [
       { key: "storeNumber", label: "Store #",        get: r => r.storeNumber || "" },
       { key: "storeName",   label: "Store Name",     get: r => r.storeName || "" },
@@ -7492,13 +7490,9 @@
       { key: "phone",       label: "Phone Number",   get: r => r.phone || "" },
       { key: "email",       label: "Store Email",    get: r => r.email || "" },
       { key: "manager",     label: "Store Manager",  get: r => r.storeManager || "" },
-      { key: "managerCell", label: "Manager Cell",   get: r => r.managerCell || "" },
       { key: "agm",         label: "Assistant GM",   get: r => r.assistantManager || "" },
-      { key: "agmCell",     label: "AGM Cell",       get: r => r.assistantManagerCell || "" },
       { key: "coach",       label: "District Manager", get: r => getCoachNames(r).join(", ") },
-      { key: "coachCell",   label: "District Manager Cell", get: r => getCoachIds(r).map(id => areaCoaches[id] && areaCoaches[id].phone).filter(Boolean).map(p => formatPhoneNumber(p) || p).join(", ") },
       { key: "director",    label: "Director",       get: r => (r.assignedDirectorId && directors[r.assignedDirectorId]) ? directors[r.assignedDirectorId].name : "" },
-      { key: "directorCell",label: "Director Cell",  get: r => (r.assignedDirectorId && directors[r.assignedDirectorId] && directors[r.assignedDirectorId].phone) ? (formatPhoneNumber(directors[r.assignedDirectorId].phone) || directors[r.assignedDirectorId].phone) : "" },
       { key: "tech",        label: "Repair Tech",    get: r => getTechNames(r).join(", ") },
       { key: "entity",      label: "Entity",         get: r => exportEntityName(r) },
       { key: "latitude",    label: "Latitude",       get: r => r.latitude || "" },
@@ -7512,87 +7506,11 @@
       return r.entity || "";
     }
 
-    // Verified work email for THIS export session (reset each time the modal opens).
-    let _exportVerifiedEmail = null;
-
-    // Every person known to FindMi with an email (people, not store mailboxes).
-    function knownPeople() {
-      const out = [];
-      [vps, directors, areaCoaches, repairTechnicians, entities].forEach(coll => {
-        Object.keys(coll || {}).forEach(id => {
-          const p = coll[id]; if (!p) return;
-          const e = (p.email || "").trim().toLowerCase();
-          if (e) out.push({ email: e, name: p.name || "" });
-        });
-      });
-      return out;
-    }
-    // Does `typedLast` match the surname of `fullName`? Normalizes punctuation
-    // (nicknames in quotes, hyphens) and accepts a compound surname suffix, so
-    // "Wickware" matches "Ravay 'Ray' Wickware" and both "Covarrubias" and
-    // "Murillo Covarrubias" match "Brenda Murillo Covarrubias".
-    function lastNameMatches(fullName, typedLast) {
-      const norm = (x) => String(x || "").toLowerCase().replace(/['".]/g, "").replace(/[^a-z\s-]/g, " ").replace(/\s+/g, " ").trim();
-      const n = norm(fullName), t = norm(typedLast);
-      if (!n || !t) return false;
-      return n === t || n.endsWith(" " + t);
-    }
-    // Email AND last name must belong to the same FindMi person.
-    function verifyPersonCredentials(email, lastName) {
-      const e = String(email || "").trim().toLowerCase();
-      if (!e) return false;
-      return knownPeople().some(p => p.email === e && lastNameMatches(p.name, lastName));
-    }
-
-    // ---- Sensitive-export verification (single source of truth) ----
-    // Cell-phone columns require a FindMi work email. This ONE function is used
-    // by every path that can select them: individual checkbox, "Select all",
-    // and a final backstop inside runExport - so no path can bypass it.
-    const SENSITIVE_EXPORT_KEYS = ["managerCell", "agmCell", "coachCell", "directorCell"];
-
-    function verifySensitiveExport() {
-      if (_exportVerifiedEmail) return true;   // already confirmed this export session
-      // Ask for email and last name in RANDOM order, and never hint at what
-      // the check is against. A failure says only that they didn't line up.
-      const intro = "You are attempting to export sensitive information.\n\n";
-      const askEmail = () => prompt(intro + "Please enter your work email to confirm this action:");
-      const askLast  = () => prompt(intro + "Please enter your last name to confirm this action:");
-      const emailFirst = Math.random() < 0.5;
-      let email, last;
-      if (emailFirst) {
-        email = askEmail(); if (email === null) return deny();
-        last  = prompt("And your last name:"); if (last === null) return deny();
-      } else {
-        last  = askLast(); if (last === null) return deny();
-        email = prompt("And your work email:"); if (email === null) return deny();
-      }
-      if (verifyPersonCredentials(email, last)) { _exportVerifiedEmail = String(email).trim().toLowerCase(); return true; }
-      return deny();
-
-      function deny() {
-        alert("Those didn't line up. Cell phone columns were not selected.");
-        return false;
-      }
-    }
-    function uncheckSensitiveExportCols() {
-      SENSITIVE_EXPORT_KEYS.forEach(k => { const cb = document.querySelector('#exportColumnList input[value="' + k + '"]'); if (cb) cb.checked = false; });
-    }
-    function sensitiveExportSelected() {
-      return selectedExportKeys().some(k => SENSITIVE_EXPORT_KEYS.indexOf(k) !== -1);
-    }
-
-    // Path 1: an individual cell-phone checkbox.
-    function gateSensitiveExport(cb) {
-      if (cb.checked && !verifySensitiveExport()) cb.checked = false;
-      updateExportCount();
-    }
-
     function openExportModal() {
-      _exportVerifiedEmail = null;
       const box = document.getElementById("exportColumnList");
       box.innerHTML = EXPORT_COLUMNS.map(c => `
         <label style="display:flex; align-items:center; gap:6px; font-size:0.78rem; cursor:pointer;">
-          <input type="checkbox" value="${c.key}" ${EXPORT_DEFAULT.indexOf(c.key) !== -1 ? "checked" : ""} onchange="${/Cell$/.test(c.key) ? "gateSensitiveExport(this)" : "updateExportCount()"}">
+          <input type="checkbox" value="${c.key}" ${EXPORT_DEFAULT.indexOf(c.key) !== -1 ? "checked" : ""} onchange="updateExportCount()">
           <span>${escapeHtml(c.label)}</span>
         </label>`).join("");
       // Extra option: include a second sheet of Support Staff.
@@ -7615,8 +7533,6 @@
 
     function setAllExportCols(on) {
       document.querySelectorAll("#exportColumnList input[type=checkbox]").forEach(cb => cb.checked = on);
-      // "Select all" includes the cell-phone columns, so it must verify too.
-      if (on && !verifySensitiveExport()) uncheckSensitiveExportCols();
       updateExportCount();
     }
 
@@ -7642,13 +7558,6 @@
 
     // Load SheetJS on demand (same CDN pattern as Leaflet), then build the file.
     function runExport() {
-      // BACKSTOP: no matter how the boxes got checked, sensitive columns need a
-      // verified work email before a file is built.
-      if (sensitiveExportSelected() && !verifySensitiveExport()) {
-        uncheckSensitiveExportCols();
-        updateExportCount();
-        return;
-      }
       const cols = EXPORT_COLUMNS.filter(c => selectedExportKeys().indexOf(c.key) !== -1);
       const includeStaff = !!(document.getElementById("exportStaffToggle") && document.getElementById("exportStaffToggle").checked);
       if (cols.length === 0 && !includeStaff) return;   // nothing selected
