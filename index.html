@@ -1422,10 +1422,8 @@
     /* Playground flag: checkbox in the store form, emoji by the name, callout row. */
     .pg-check { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85rem; font-weight: 600; color: var(--t-ink); }
     .pg-check input { width: 16px; height: 16px; margin: 0; accent-color: #10b981; cursor: pointer; }
-    .pg-emoji { flex-shrink: 0; font-size: 0.95rem; line-height: 1; margin-left: 2px; }
-    .pg-row { color: #059669 !important; font-weight: 700 !important; }
-    .pg-row .cf-value { color: #059669; font-weight: 700; }
-    html[data-theme="dark"] .pg-row, html[data-theme="dark"] .pg-row .cf-value { color: #34d399 !important; }
+    .pg-emoji, .sl-emoji { flex-shrink: 0; font-size: 0.95rem; line-height: 1; margin-left: 2px; cursor: help; }
+    .card .pg-emoji, .card .sl-emoji { pointer-events: auto !important; }
 
     /* --- technician specialties + zone colour --- */
     .tech-cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px}
@@ -2204,7 +2202,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v9.6 Vercel API</span>
+      <span>v9.7 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -2595,6 +2593,7 @@
 
           <div class="form-group" id="groupPlayground" style="display: none;">
             <label class="pg-check" for="inputHasPlayground"><input type="checkbox" id="inputHasPlayground"> 🛝 This store has a playground</label>
+            <label class="pg-check" for="inputHasStarlink" style="margin-top: 6px;"><input type="checkbox" id="inputHasStarlink"> 🛰️ Starlink site</label>
           </div>
 
           <div class="form-group" id="groupStoreManager" style="display: none;">
@@ -2946,7 +2945,7 @@
        shared admins/appMeta node; every client compares on each load, and a
        stale client force-reloads itself with a cache-busting ?v= URL. This is
        the same approach FixMi uses so the two apps stay consistent. */
-    const APP_VERSION = "9.6";
+    const APP_VERSION = "9.7";
     let _versionPublished = false;
 
     function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
@@ -4719,7 +4718,8 @@
         // Navigate by the STREET ADDRESS on file (what a person would type into
         // Maps), not the GPS point. Coordinates stay internal for the map screen.
         const mNav = rest.address ? "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(rest.address) : "";
-        const pgEmoji = rest.hasPlayground ? `<span class="pg-emoji" title="This store has a playground" aria-label="Has a playground">🛝</span>` : "";
+        const pgEmoji = (rest.hasPlayground ? `<span class="pg-emoji" title="This store has a playground" aria-label="This store has a playground" onmousedown="event.stopPropagation();">🛝</span>` : "")
+                      + (rest.hasStarlink ? `<span class="sl-emoji" title="Starlink site" aria-label="Starlink site" onmousedown="event.stopPropagation();">🛰️</span>` : "");
 
         if (isExpanded) {
           card.innerHTML = `
@@ -4758,7 +4758,6 @@
                 secStore.push(cfRow("📍", "Address", rest.address, "Address"));
                 secStore.push(cfRow("☎", "Phone", formatPhoneNumber(rest.phone) || rest.phone, "Phone number"));
                 secStore.push(cfRow("✉", "Email", rest.email, "Email"));
-                if (rest.hasPlayground) secStore.push(`<div class="card-detail cf-row pg-row"><span class="cf-icon">🛝</span><span class="cf-value">This store has a playground</span></div>`);
 
                 // ONE manager list: imported `managers`, legacy Mgr/AGM as fallback.
                 // GM > AGM > In Training > Other; name and phone on separate lines.
@@ -5343,6 +5342,7 @@
           document.getElementById("inputStoreNumber").value = item.storeNumber || "";
           document.getElementById("inputStoreName").value = item.storeName || "";
           document.getElementById("inputHasPlayground").checked = !!item.hasPlayground;
+          document.getElementById("inputHasStarlink").checked = !!item.hasStarlink;
           document.getElementById("inputStoreManager").value = item.storeManager || "";
           document.getElementById("inputManagerCell").value = formatPhoneNumber(item.managerCell) || "";
           document.getElementById("inputAgm").value = item.assistantManager || "";
@@ -5659,6 +5659,7 @@
           storeNumber: formatStoreNumberDigits(document.getElementById("inputStoreNumber").value) || '#',
           storeName: document.getElementById("inputStoreName").value,
           hasPlayground: !!document.getElementById("inputHasPlayground").checked,
+          hasStarlink: !!document.getElementById("inputHasStarlink").checked,
           storeManager: document.getElementById("inputStoreManager").value,
           managerCell: formatPhoneNumber(document.getElementById("inputManagerCell").value),
           assistantManager: document.getElementById("inputAgm").value.trim(),
@@ -7734,6 +7735,7 @@
       if (r.phone) lines.push("Phone: " + (formatPhoneNumber(r.phone) || r.phone));
       if (r.email) lines.push("Email: " + r.email);
       if (r.hasPlayground) lines.push("Playground: Yes");
+      if (r.hasStarlink) lines.push("Starlink site: Yes");
       // Relationships, resolved to names.
       const dirName = (r.assignedDirectorId && directors[r.assignedDirectorId]) ? directors[r.assignedDirectorId].name : "";
       if (dirName) lines.push("Director: " + dirName);
