@@ -1420,8 +1420,13 @@
     .field-private { font-weight: 400; font-size: .65rem; color: var(--t-warn-fg); letter-spacing: .01em; }
     .field-opt { font-weight: 400; font-size: .65rem; color: var(--t-faint); }
     /* Playground flag: checkbox in the store form, emoji by the name, callout row. */
-    .pg-check { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85rem; font-weight: 600; color: var(--t-ink); }
-    .pg-check input { width: 16px; height: 16px; margin: 0; accent-color: #10b981; cursor: pointer; }
+    .form-group label.pg-check { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.82rem; font-weight: 600; color: var(--t-ink); margin: 0; padding: 4px 0; }
+    .form-group .pg-check input[type="checkbox"] { width: 16px; height: 16px; min-width: 16px; margin: 0; padding: 0; flex: 0 0 16px; accent-color: #10b981; cursor: pointer; box-shadow: none; }
+    .form-group .pg-check span { line-height: 1.2; }
+    /* Store hours: 24h toggle disables the free-text field. */
+    .hours-row { display: flex; align-items: center; gap: 10px; }
+    .hours-row input[type="text"] { flex: 1 1 auto; min-width: 0; }
+    .hours-row input[type="text"]:disabled { opacity: .45; }
     .pg-emoji, .sl-emoji { flex-shrink: 0; font-size: 0.95rem; line-height: 1; margin-left: 2px; cursor: help; }
     .card .pg-emoji, .card .sl-emoji { pointer-events: auto !important; }
 
@@ -1613,6 +1618,8 @@
       justify-content: center;
       align-items: center;
       z-index: 1000;
+      padding: 12px;
+      box-sizing: border-box;
     }
 
     .modal-backdrop.active {
@@ -1627,7 +1634,17 @@
       max-width: 440px;
       border: 1px solid var(--neutral-border);
       overflow: hidden;
+      /* Tall forms (the store editor) scroll inside the card instead of
+         running off the bottom of the screen. */
+      max-height: calc(100dvh - 24px);
+      max-height: calc(100vh - 24px);
+      display: flex;
+      flex-direction: column;
     }
+    @supports (height: 100dvh) { .modal-card { max-height: calc(100dvh - 24px); } }
+    .modal-card > form { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
+    .modal-card .modal-header, .modal-card .modal-footer { flex: 0 0 auto; }
+    .modal-card .modal-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 
     .modal-header {
       padding: 8px 12px;
@@ -2202,7 +2219,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v9.8 Vercel API</span>
+      <span>v10.0 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -2592,8 +2609,8 @@
           </div>
 
           <div class="form-group" id="groupPlayground" style="display: none;">
-            <label class="pg-check" for="inputHasPlayground"><input type="checkbox" id="inputHasPlayground"> 🛝 This store has a playground</label>
-            <label class="pg-check" for="inputHasStarlink" style="margin-top: 6px;"><input type="checkbox" id="inputHasStarlink"> 🛰️ Starlink site</label>
+            <label class="pg-check" for="inputHasPlayground"><input type="checkbox" id="inputHasPlayground"><span>🛝 This store has a playground</span></label>
+            <label class="pg-check" for="inputHasStarlink"><input type="checkbox" id="inputHasStarlink"><span>🛰️ Starlink site</span></label>
           </div>
 
           <div class="form-group" id="groupStoreManager" style="display: none;">
@@ -2619,6 +2636,14 @@
           <div class="form-group" id="groupAddress" style="display: none;">
             <label for="inputAddress">Address</label>
             <input type="text" id="inputAddress" placeholder="e.g. 5401 Sun Valley Dr., Fort Worth, TX 76119">
+          </div>
+
+          <div class="form-group" id="groupHours" style="display: none;">
+            <label for="inputHours">Store Hours <span class="field-opt">optional</span></label>
+            <div class="hours-row">
+              <input type="text" id="inputHours" placeholder="e.g. 6 AM – 12 AM (Fri–Sat until 1 AM)">
+              <label class="pg-check" for="inputOpen24" style="flex: 0 0 auto; padding: 0;"><input type="checkbox" id="inputOpen24" onchange="syncOpen24()"><span>Open 24 hours</span></label>
+            </div>
           </div>
 
           <div class="form-group" id="groupEntity" style="display: none;">
@@ -2945,7 +2970,7 @@
        shared admins/appMeta node; every client compares on each load, and a
        stale client force-reloads itself with a cache-busting ?v= URL. This is
        the same approach FixMi uses so the two apps stay consistent. */
-    const APP_VERSION = "9.8";
+    const APP_VERSION = "10.0";
     let _versionPublished = false;
 
     function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
@@ -3995,6 +4020,14 @@
       renderAll();
     }
 
+    // Keywords for store feature flags so "playground", "starlink", "24 hours"
+    // typed in the header search filter to those stores.
+    function storeSearchFlags(r) {
+      if (!r) return "";
+      return (r.hasPlayground ? "playground " : "") + (r.hasStarlink ? "starlink " : "")
+           + (r.open24 ? "open 24 hours 24hr 24/7 " : "") + (r.hours || "");
+    }
+
     // Returns true if the item should show given the current global query.
     // Pass any number of field values; they're joined and matched.
     function globalMatch(...fields) {
@@ -4503,6 +4536,7 @@
           const r = restaurants[id];
           if (!r) return false;
           return globalMatch(r.storeName, r.storeNumber, r.address, r.phone, r.email,
+            storeSearchFlags(r),
             r.storeManager, r.assistantManager,
             (Array.isArray(r.managers) ? r.managers.map(m => (m.name||"")+" "+(m.title||"")+" "+(m.phone||"")).join(" ") : ""),
             getCoachNames(r).join(" "), getTechNames(r).join(" "),
@@ -4526,7 +4560,7 @@
           const lat = (rest.latitude || "").toLowerCase();
           const lng = (rest.longitude || "").toLowerCase();
           // Feature flags: typing "playground" or "starlink" filters to those stores.
-          const flags = (rest.hasPlayground ? "playground " : "") + (rest.hasStarlink ? "starlink " : "");
+          const flags = storeSearchFlags(rest);
           
           const coachName = getCoachNames(rest).join(" ").toLowerCase();
           const dirName = rest.assignedDirectorId && directors[rest.assignedDirectorId] 
@@ -4760,6 +4794,7 @@
                 secStore.push(cfRow("🏢", "Entity", entName, "Entity"));
                 secStore.push(cfRow("📍", "Address", rest.address, "Address"));
                 secStore.push(cfRow("☎", "Phone", formatPhoneNumber(rest.phone) || rest.phone, "Phone number"));
+                secStore.push(cfRow("🕒", "Hours", storeHoursText(rest), "Store hours"));
                 secStore.push(cfRow("✉", "Email", rest.email, "Email"));
 
                 // ONE manager list: imported `managers`, legacy Mgr/AGM as fallback.
@@ -5285,6 +5320,7 @@
         document.getElementById("modalTitle").innerText = titleText;
         
         setupFormFields(type);
+        syncOpen24();
         if (type === "restaurant") {
           // Preselect whatever coach is currently filtered, matching the old behaviour.
           renderPicker("coach", selectedCoachId ? [selectedCoachId] : []);
@@ -5351,6 +5387,9 @@
           document.getElementById("inputAgm").value = item.assistantManager || "";
           document.getElementById("inputAgmCell").value = formatPhoneNumber(item.assistantManagerCell) || "";
           document.getElementById("inputAddress").value = item.address || "";
+          document.getElementById("inputHours").value = item.hours || "";
+          document.getElementById("inputOpen24").checked = !!item.open24;
+          syncOpen24();
           
           // Safe check for the entity dropdown in case it doesn't exist in the HTML yet
           const selectAssignedEntityVal = item.assignedEntityId || "";
@@ -5385,7 +5424,7 @@
     // Groups shown only for stores. Cell numbers live here and nowhere else -
     // they are deliberately never rendered on the card.
     const STORE_ONLY_GROUPS = ["groupStoreNo", "groupStoreName", "groupPlayground", "groupStoreManager",
-      "groupManagerCell", "groupAgm", "groupAgmCell", "groupAddress", "groupEntity",
+      "groupManagerCell", "groupAgm", "groupAgmCell", "groupAddress", "groupHours", "groupEntity",
       "groupLatitude", "groupLongitude", "groupAssignedCoach", "groupAssignedTech"];
 
     /* Render the technician specialty checkboxes + colour swatches. */
@@ -5409,6 +5448,19 @@
     }
     function readTechCategories(){
       return Array.from(document.querySelectorAll("#techCatGrid input:checked")).map(i=>i.value);
+    }
+
+    // "Open 24 hours" greys out the free-text hours field.
+    function syncOpen24() {
+      const cb = document.getElementById("inputOpen24"), tx = document.getElementById("inputHours");
+      if (!cb || !tx) return;
+      tx.disabled = cb.checked;
+      if (cb.checked) tx.value = "";
+    }
+    function storeHoursText(r) {
+      if (!r) return "";
+      if (r.open24) return "Open 24 hours";
+      return (r.hours || "").trim();
     }
 
     function setupFormFields(type) {
@@ -5668,6 +5720,8 @@
           assistantManager: document.getElementById("inputAgm").value.trim(),
           assistantManagerCell: formatPhoneNumber(document.getElementById("inputAgmCell").value),
           address: document.getElementById("inputAddress").value,
+          hours: document.getElementById("inputOpen24").checked ? "" : document.getElementById("inputHours").value.trim(),
+          open24: !!document.getElementById("inputOpen24").checked,
           entity: selectedEntityName,
           assignedEntityId: selectedEntityIdInput,
           latitude: document.getElementById("inputLatitude").value || "",
@@ -7736,6 +7790,7 @@
       }
       if (r.address) lines.push("Address: " + r.address);
       if (r.phone) lines.push("Phone: " + (formatPhoneNumber(r.phone) || r.phone));
+      if (storeHoursText(r)) lines.push("Hours: " + storeHoursText(r));
       if (r.email) lines.push("Email: " + r.email);
       if (r.hasPlayground) lines.push("Playground: Yes");
       if (r.hasStarlink) lines.push("Starlink site: Yes");
