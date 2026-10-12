@@ -2202,7 +2202,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v9.7 Vercel API</span>
+      <span>v9.8 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -2945,7 +2945,7 @@
        shared admins/appMeta node; every client compares on each load, and a
        stale client force-reloads itself with a cache-busting ?v= URL. This is
        the same approach FixMi uses so the two apps stay consistent. */
-    const APP_VERSION = "9.7";
+    const APP_VERSION = "9.8";
     let _versionPublished = false;
 
     function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
@@ -4525,6 +4525,8 @@
           const entity = (rest.entity || "").toLowerCase();
           const lat = (rest.latitude || "").toLowerCase();
           const lng = (rest.longitude || "").toLowerCase();
+          // Feature flags: typing "playground" or "starlink" filters to those stores.
+          const flags = (rest.hasPlayground ? "playground " : "") + (rest.hasStarlink ? "starlink " : "");
           
           const coachName = getCoachNames(rest).join(" ").toLowerCase();
           const dirName = rest.assignedDirectorId && directors[rest.assignedDirectorId] 
@@ -4538,6 +4540,7 @@
                  entity.includes(query) ||
                  lat.includes(query) ||
                  lng.includes(query) ||
+                 flags.includes(query) ||
                  coachName.includes(query) ||
                  dirName.includes(query);
         });
