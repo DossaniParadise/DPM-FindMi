@@ -995,6 +995,34 @@
     /* Detail sections inside a store tile. Stacked on narrow screens; inside
        an expanded (full-width) tile on a wide monitor they sit side by side. */
     .cf-sections { display: grid; grid-template-columns: 1fr; gap: 2px 20px; }
+    /* Collapsible groups inside a store tile (Hours, Personnel). The grid-row
+       trick animates height without measuring it. */
+    .cf-fold-btn {
+      display: inline-flex; align-items: center; gap: 6px; margin: 4px 0 2px; padding: 3px 10px 3px 8px;
+      font-size: 0.72rem; font-weight: 700; color: var(--t-ink-2); background: var(--t-surface-2);
+      border: 1px solid var(--t-line-2); border-radius: 999px; cursor: pointer; line-height: 1.2;
+      transition: background .15s ease, border-color .15s ease;
+    }
+    .cf-fold-btn:hover { background: var(--t-info-bg); border-color: var(--t-info-line); color: var(--t-info-fg); }
+    .cf-fold-btn .cf-fold-caret { display: inline-block; font-size: 0.6rem; transition: transform .25s ease; }
+    .cf-fold-btn[aria-expanded="true"] .cf-fold-caret { transform: rotate(90deg); }
+    .cf-fold-btn .cf-fold-count { font-weight: 600; color: var(--t-muted); }
+    .cf-fold { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .28s ease; }
+    .cf-fold.open { grid-template-rows: 1fr; }
+    .cf-fold > .cf-fold-inner { overflow: hidden; min-height: 0; }
+    .cf-fold.open > .cf-fold-inner { padding-bottom: 2px; }
+    .cf-sub-title { font-size: 0.62rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--t-faint); margin: 5px 0 2px 6px; }
+    .card .cf-fold-btn { pointer-events: auto !important; }
+    @media (prefers-reduced-motion: reduce) { .cf-fold, .cf-fold-btn .cf-fold-caret { transition: none; } }
+    /* Header dropdown: default detail level for every store tile. */
+    .detail-mode-sel {
+      appearance: none; -webkit-appearance: none; padding: 5px 24px 5px 10px; font-size: 0.72rem; font-weight: 600;
+      color: #fff; background: rgba(255,255,255,0.08) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' fill='none' stroke='white' stroke-width='1.5'/></svg>") no-repeat right 9px center;
+      border: 1px solid rgba(255,255,255,0.25); border-radius: 999px; cursor: pointer; flex-shrink: 0;
+    }
+    .detail-mode-sel:hover { background-color: rgba(255,255,255,0.18); }
+    .detail-mode-sel option { color: #111; background: #fff; }
+    @media (max-width: 768px) { .detail-mode-sel { padding: 6px 22px 6px 8px; font-size: 0.7rem; } }
     .cf-section { min-width: 0; }
     .cf-section-title { display: none; }
     @media (min-width: 900px) {
@@ -1424,9 +1452,16 @@
     .form-group .pg-check input[type="checkbox"] { width: 16px; height: 16px; min-width: 16px; margin: 0; padding: 0; flex: 0 0 16px; accent-color: #10b981; cursor: pointer; box-shadow: none; }
     .form-group .pg-check span { line-height: 1.2; }
     /* Store hours: 24h toggle disables the free-text field. */
-    .hours-row { display: flex; align-items: center; gap: 10px; }
-    .hours-row input[type="text"] { flex: 1 1 auto; min-width: 0; }
-    .hours-row input[type="text"]:disabled { opacity: .45; }
+    .hours-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+    .hours-paste { width: 100%; box-sizing: border-box; font-family: monospace; font-size: 0.72rem; padding: 6px 8px; border: 1px solid var(--t-line-2); border-radius: 4px; resize: vertical; background: var(--bg-white); color: var(--t-ink); }
+    .hours-tools { display: flex; align-items: center; gap: 8px; margin: 4px 0 6px; font-size: 0.7rem; color: var(--t-muted); }
+    .hours-tools .btn { padding: 3px 10px; font-size: 0.72rem; }
+    .hours-grid { display: grid; grid-template-columns: 34px 1fr 1fr 1fr; gap: 3px 5px; align-items: center; }
+    .hours-grid .hg-h { font-size: 0.64rem; font-weight: 700; color: var(--t-muted); text-align: center; text-transform: uppercase; letter-spacing: .03em; }
+    .hours-grid .hg-d { font-size: 0.7rem; font-weight: 700; color: var(--t-ink-2); }
+    .form-group .hours-grid input[type="text"] { width: 100%; box-sizing: border-box; padding: 3px 4px; font-size: 0.72rem; font-family: monospace; text-align: center; }
+    .hours-grid.is-24 { opacity: .4; pointer-events: none; }
+    .hours-paste.is-24 { opacity: .4; pointer-events: none; }
     .pg-emoji, .sl-emoji { flex-shrink: 0; font-size: 0.95rem; line-height: 1; margin-left: 2px; cursor: help; }
     .card .pg-emoji, .card .sl-emoji { pointer-events: auto !important; }
 
@@ -2219,7 +2254,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v10.0 Vercel API</span>
+      <span>v10.2 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -2233,6 +2268,12 @@
     </div>
 
     <div class="header-actions">
+      <select class="detail-mode-sel" id="detailModeSel" onchange="setDetailMode(this.value)" aria-label="Store tile detail level" title="How much each opened store tile shows">
+        <option value="standard">Standard</option>
+        <option value="hours">Standard + Hours</option>
+        <option value="personnel">Standard + Personnel</option>
+        <option value="all">All</option>
+      </select>
       <button type="button" class="theme-toggle" id="themeToggle" onclick="toggleTheme()" aria-label="Toggle dark mode" title="Toggle dark mode">🌙</button>
       <!-- Database Connection Status Badge -->
       <div id="connectionStatus" class="status-badge">
@@ -2639,11 +2680,16 @@
           </div>
 
           <div class="form-group" id="groupHours" style="display: none;">
-            <label for="inputHours">Store Hours <span class="field-opt">optional</span></label>
-            <div class="hours-row">
-              <input type="text" id="inputHours" placeholder="e.g. 6 AM – 12 AM (Fri–Sat until 1 AM)">
-              <label class="pg-check" for="inputOpen24" style="flex: 0 0 auto; padding: 0;"><input type="checkbox" id="inputOpen24" onchange="syncOpen24()"><span>Open 24 hours</span></label>
+            <div class="hours-head">
+              <label style="margin: 0;">Store Hours <span class="field-opt">optional</span></label>
+              <label class="pg-check" for="inputOpen24" style="padding: 0;"><input type="checkbox" id="inputOpen24" onchange="syncOpen24()"><span>Open 24 hours</span></label>
             </div>
+            <textarea id="hoursPaste" class="hours-paste" rows="3" placeholder="Paste the hours block from the site here (Dining Room / Drive Thru / Delivery lines with 06:00 - 22:00 times) and click Parse" spellcheck="false"></textarea>
+            <div class="hours-tools">
+              <button type="button" class="btn" onclick="parseHoursPaste()">Parse</button>
+              <span id="hoursParseMsg">Mon → Sun order. Times are 24-hour; leave a box blank if unknown, or type Closed.</span>
+            </div>
+            <div class="hours-grid" id="hoursGrid"></div>
           </div>
 
           <div class="form-group" id="groupEntity" style="display: none;">
@@ -2970,7 +3016,7 @@
        shared admins/appMeta node; every client compares on each load, and a
        stale client force-reloads itself with a cache-busting ?v= URL. This is
        the same approach FixMi uses so the two apps stay consistent. */
-    const APP_VERSION = "10.0";
+    const APP_VERSION = "10.2";
     let _versionPublished = false;
 
     function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
@@ -4025,7 +4071,7 @@
     function storeSearchFlags(r) {
       if (!r) return "";
       return (r.hasPlayground ? "playground " : "") + (r.hasStarlink ? "starlink " : "")
-           + (r.open24 ? "open 24 hours 24hr 24/7 " : "") + (r.hours || "");
+           + (r.open24 ? "open 24 hours 24hr 24/7 " : "") + storeHoursText(r);
     }
 
     // Returns true if the item should show given the current global query.
@@ -4794,8 +4840,8 @@
                 secStore.push(cfRow("🏢", "Entity", entName, "Entity"));
                 secStore.push(cfRow("📍", "Address", rest.address, "Address"));
                 secStore.push(cfRow("☎", "Phone", formatPhoneNumber(rest.phone) || rest.phone, "Phone number"));
-                secStore.push(cfRow("🕒", "Hours", storeHoursText(rest), "Store hours"));
                 secStore.push(cfRow("✉", "Email", rest.email, "Email"));
+                const hoursRows = storeHoursLines(rest).map(l => cfRow(l.icon, l.label, l.text, l.label + " hours")).join("");
 
                 // ONE manager list: imported `managers`, legacy Mgr/AGM as fallback.
                 // GM > AGM > In Training > Other; name and phone on separate lines.
@@ -4823,16 +4869,22 @@
                 }
                 getTechIds(rest).forEach(tid => { if (repairTechnicians[tid]) secTeam.push(cfRow("🛠", "Tech", repairTechnicians[tid].name, "Repair tech name", rmTech(tid))); });
 
-                // "Open map" badge rides inline on the very last row.
-                const sections = [["Store", secStore], ["Managers", secMgr], ["Team", secTeam]]
-                  .map(([t, arr]) => [t, arr.filter(Boolean)]).filter(([t, arr]) => arr.length);
-                if (rest.address && sections.length) {
-                  const lastArr = sections[sections.length - 1][1];
+                // "Open map" badge rides inline on the last always-visible store row.
+                const storeRows = secStore.filter(Boolean);
+                if (rest.address && storeRows.length) {
                   const badge = `<a class="open-map-badge" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(rest.address)}" target="_blank" rel="noopener" onmousedown="event.stopPropagation();" onclick="event.stopPropagation();" draggable="false">Open map ↗</a>`;
-                  lastArr[lastArr.length - 1] = lastArr[lastArr.length - 1].replace(/<\/div>\s*$/, badge + "</div>");
+                  storeRows[storeRows.length - 1] = storeRows[storeRows.length - 1].replace(/<\/div>\s*$/, badge + "</div>");
                 }
-                return `<div class="cf-sections">` + sections.map(([t, arr]) =>
-                  `<div class="cf-section"><div class="cf-section-title">${t}</div>${arr.join("")}</div>`).join("") + `</div>`;
+                // Hours and Personnel sit behind buttons so the tile stays short;
+                // the header dropdown decides whether they start open.
+                const mgrRows = secMgr.filter(Boolean).join(""), teamRows = secTeam.filter(Boolean).join("");
+                const personnelRows = (mgrRows ? `<div class="cf-sub-title">Managers</div>${mgrRows}` : "") + (teamRows ? `<div class="cf-sub-title">Team</div>${teamRows}` : "");
+                const personnelCount = mgrs.length + getCoachIds(rest).length + getTechIds(rest).length + (dirName ? 1 : 0);
+                const storeHtml = storeRows.join("") + cfFold(restId, "hours", "🕒", "Hours", "", hoursRows);
+                const personnelHtml = cfFold(restId, "personnel", "👥", "Personnel", personnelCount, personnelRows);
+                const sections = [["Store", storeHtml], ["Personnel", personnelHtml]].filter(([t, h]) => h);
+                return `<div class="cf-sections">` + sections.map(([t, h]) =>
+                  `<div class="cf-section"><div class="cf-section-title">${t}</div>${h}</div>`).join("") + `</div>`;
               })()}
             </div>
           `;
@@ -5320,6 +5372,8 @@
         document.getElementById("modalTitle").innerText = titleText;
         
         setupFormFields(type);
+        hoursGridFill(null);
+        const hp0 = document.getElementById("hoursPaste"); if (hp0) hp0.value = "";
         syncOpen24();
         if (type === "restaurant") {
           // Preselect whatever coach is currently filtered, matching the old behaviour.
@@ -5387,7 +5441,9 @@
           document.getElementById("inputAgm").value = item.assistantManager || "";
           document.getElementById("inputAgmCell").value = formatPhoneNumber(item.assistantManagerCell) || "";
           document.getElementById("inputAddress").value = item.address || "";
-          document.getElementById("inputHours").value = item.hours || "";
+          hoursGridFill(item.hoursDetail);
+          const hp = document.getElementById("hoursPaste"); if (hp) hp.value = "";
+          const hm = document.getElementById("hoursParseMsg"); if (hm) hm.textContent = "Mon → Sun order. Times are 24-hour; leave a box blank if unknown, or type Closed.";
           document.getElementById("inputOpen24").checked = !!item.open24;
           syncOpen24();
           
@@ -5450,18 +5506,140 @@
       return Array.from(document.querySelectorAll("#techCatGrid input:checked")).map(i=>i.value);
     }
 
-    // "Open 24 hours" greys out the free-text hours field.
+    // ---- Store hours (three channels x seven days) ----
+    const HOURS_CHANNELS = [
+      { key: "dining",    label: "Dining",     icon: "🍽", match: /dining|lobby|front/i },
+      { key: "driveThru", label: "Drive-Thru", icon: "🚗", match: /drive/i },
+      { key: "delivery",  label: "Delivery",   icon: "🛵", match: /deliver/i }
+    ];
+    const HOURS_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+    function hoursGridBuild() {
+      const g = document.getElementById("hoursGrid");
+      if (!g || g.children.length) return;
+      let h = `<div></div>` + HOURS_CHANNELS.map(c => `<div class="hg-h">${c.icon} ${c.label}</div>`).join("");
+      HOURS_DAYS.forEach((d, i) => {
+        h += `<div class="hg-d">${d}</div>` + HOURS_CHANNELS.map(c =>
+          `<input type="text" id="hrs_${c.key}_${i}" placeholder="06:00 - 22:00" autocomplete="off">`).join("");
+      });
+      g.innerHTML = h;
+    }
+    function hoursGridFill(detail) {
+      hoursGridBuild();
+      HOURS_CHANNELS.forEach(c => {
+        const arr = (detail && Array.isArray(detail[c.key])) ? detail[c.key] : [];
+        for (let i = 0; i < 7; i++) {
+          const el = document.getElementById(`hrs_${c.key}_${i}`);
+          if (el) el.value = arr[i] || "";
+        }
+      });
+    }
+    // Read the grid back into {dining:[7], driveThru:[7], delivery:[7]} or null if empty.
+    function hoursGridRead() {
+      const out = {}; let any = false;
+      HOURS_CHANNELS.forEach(c => {
+        out[c.key] = [];
+        for (let i = 0; i < 7; i++) {
+          const el = document.getElementById(`hrs_${c.key}_${i}`);
+          const v = normalizeHoursRange(el ? el.value : "");
+          if (v) any = true;
+          out[c.key].push(v);
+        }
+      });
+      return any ? out : null;
+    }
+    // "06:00 - 22:00" / "6:00-22:00" / "closed" -> canonical "06:00 - 22:00" | "Closed" | "".
+    function normalizeHoursRange(v) {
+      const t = String(v || "").trim();
+      if (!t) return "";
+      if (/^closed$/i.test(t)) return "Closed";
+      const m = t.match(/^(\d{1,2}):?(\d{2})?\s*[-–—to]+\s*(\d{1,2}):?(\d{2})?$/i);
+      if (!m) return t;   // keep whatever they typed rather than lose it
+      const pad = n => String(n).padStart(2, "0");
+      return `${pad(m[1])}:${m[2] || "00"} - ${pad(m[3])}:${m[4] || "00"}`;
+    }
+    // Parse the block copied from the site: label line, then "HH:MM - HH:MM"
+    // line, repeated; each channel's 7 lines run Mon..Sun.
+    function parseHoursText(text) {
+      const lines = String(text || "").split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      const groups = {}; HOURS_CHANNELS.forEach(c => groups[c.key] = []);
+      let current = null, matched = 0;
+      lines.forEach(l => {
+        const isTime = /^\d{1,2}:\d{2}\s*[-–—]\s*\d{1,2}:\d{2}$/.test(l) || /^closed$/i.test(l);
+        if (isTime) {
+          if (current) { groups[current].push(normalizeHoursRange(l)); matched++; }
+          return;
+        }
+        const ch = HOURS_CHANNELS.find(c => c.match.test(l));
+        current = ch ? ch.key : null;
+      });
+      const out = {}; let any = false;
+      HOURS_CHANNELS.forEach(c => {
+        const arr = groups[c.key].slice(0, 7);
+        while (arr.length < 7) arr.push("");
+        if (groups[c.key].length) any = true;
+        out[c.key] = arr;
+      });
+      return { detail: any ? out : null, matched, counts: HOURS_CHANNELS.map(c => groups[c.key].length) };
+    }
+    function parseHoursPaste() {
+      const ta = document.getElementById("hoursPaste"), msg = document.getElementById("hoursParseMsg");
+      const res = parseHoursText(ta ? ta.value : "");
+      if (!res.detail) { if (msg) msg.textContent = "Nothing recognized — expected lines like “Drive Thru” then “06:00 - 02:00”."; return; }
+      hoursGridFill(res.detail);
+      if (msg) msg.textContent = `Filled ${res.matched} entries (` + HOURS_CHANNELS.map((c, i) => `${c.label} ${res.counts[i]}`).join(", ") + `). Check Mon → Sun order, then Save.`;
+      if (ta) ta.value = "";
+    }
+    // "Open 24 hours" greys out the paste box and grid.
     function syncOpen24() {
-      const cb = document.getElementById("inputOpen24"), tx = document.getElementById("inputHours");
-      if (!cb || !tx) return;
-      tx.disabled = cb.checked;
-      if (cb.checked) tx.value = "";
+      const cb = document.getElementById("inputOpen24");
+      const on = !!(cb && cb.checked);
+      const g = document.getElementById("hoursGrid"), ta = document.getElementById("hoursPaste");
+      if (g) g.classList.toggle("is-24", on);
+      if (ta) ta.classList.toggle("is-24", on);
     }
-    function storeHoursText(r) {
-      if (!r) return "";
-      if (r.open24) return "Open 24 hours";
-      return (r.hours || "").trim();
+    // "06:00" -> "6 AM", "22:30" -> "10:30 PM", "00:00" -> "12 AM"
+    function fmtClock(t) {
+      const m = String(t || "").match(/^(\d{1,2}):(\d{2})$/);
+      if (!m) return t || "";
+      let h = parseInt(m[1], 10), mm = m[2];
+      const ap = h >= 12 && h < 24 ? "PM" : "AM";
+      h = h % 12; if (h === 0) h = 12;
+      return mm === "00" ? `${h} ${ap}` : `${h}:${mm} ${ap}`;
     }
+    function fmtHoursRange(v) {
+      if (!v) return "";
+      if (/^closed$/i.test(v)) return "Closed";
+      const m = String(v).match(/^(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})$/);
+      return m ? `${fmtClock(m[1])} – ${fmtClock(m[2])}` : v;
+    }
+    // [7 ranges] -> "Daily 6 AM – 10 PM" or "Mon–Sat 6 AM – 10 PM · Sun 7 AM – 10 PM"
+    function fmtHoursWeek(arr) {
+      if (!Array.isArray(arr)) return "";
+      const vals = arr.map(v => v || "");
+      if (!vals.some(Boolean)) return "";
+      const runs = [];
+      for (let i = 0; i < 7; i++) {
+        const last = runs[runs.length - 1];
+        if (last && last.v === vals[i]) last.end = i; else runs.push({ v: vals[i], start: i, end: i });
+      }
+      const shown = runs.filter(r => r.v);
+      if (shown.length === 1 && shown[0].start === 0 && shown[0].end === 6) return "Daily " + fmtHoursRange(shown[0].v);
+      return shown.map(r => (r.start === r.end ? HOURS_DAYS[r.start] : `${HOURS_DAYS[r.start]}–${HOURS_DAYS[r.end]}`) + " " + fmtHoursRange(r.v)).join(" · ");
+    }
+    // Lines for the card / Copy All: [{icon,label,text}]
+    function storeHoursLines(r) {
+      if (!r) return [];
+      if (r.open24) return [{ icon: "🕒", label: "Hours", text: "Open 24 hours" }];
+      const d = r.hoursDetail;
+      const out = [];
+      if (d && typeof d === "object") {
+        HOURS_CHANNELS.forEach(c => { const t = fmtHoursWeek(d[c.key]); if (t) out.push({ icon: c.icon, label: c.label, text: t }); });
+      }
+      if (!out.length && (r.hours || "").trim()) out.push({ icon: "🕒", label: "Hours", text: r.hours.trim() });
+      return out;
+    }
+    function storeHoursText(r) { return storeHoursLines(r).map(l => (l.label === "Hours" ? "" : l.label + ": ") + l.text).join(" | "); }
 
     function setupFormFields(type) {
       const isStore = type === "restaurant";
@@ -5720,7 +5898,7 @@
           assistantManager: document.getElementById("inputAgm").value.trim(),
           assistantManagerCell: formatPhoneNumber(document.getElementById("inputAgmCell").value),
           address: document.getElementById("inputAddress").value,
-          hours: document.getElementById("inputOpen24").checked ? "" : document.getElementById("inputHours").value.trim(),
+          hoursDetail: document.getElementById("inputOpen24").checked ? null : hoursGridRead(),
           open24: !!document.getElementById("inputOpen24").checked,
           entity: selectedEntityName,
           assignedEntityId: selectedEntityIdInput,
@@ -7790,7 +7968,7 @@
       }
       if (r.address) lines.push("Address: " + r.address);
       if (r.phone) lines.push("Phone: " + (formatPhoneNumber(r.phone) || r.phone));
-      if (storeHoursText(r)) lines.push("Hours: " + storeHoursText(r));
+      storeHoursLines(r).forEach(l => lines.push((l.label === "Hours" ? "Hours: " : l.label + ": ") + l.text));
       if (r.email) lines.push("Email: " + r.email);
       if (r.hasPlayground) lines.push("Playground: Yes");
       if (r.hasStarlink) lines.push("Starlink site: Yes");
@@ -7844,6 +8022,44 @@
     // field looks identical: same font, icon + label, indigo hover, click
     // copies just the value. `trailing` is optional extra markup (e.g. an
     // editor-only remove button) placed at the right edge.
+    // ---- Store tile detail level ----
+    // Header dropdown sets the default for every tile; clicking a tile's
+    // Hours / Personnel button overrides just that tile until the mode changes.
+    let detailMode = (() => { try { return localStorage.getItem("dpm_detail_mode") || "standard"; } catch (e) { return "standard"; } })();
+    const cardFoldOverride = {};
+    function foldDefault(kind) { return detailMode === "all" || detailMode === kind; }
+    function foldIsOpen(restId, kind) {
+      const k = restId + ":" + kind;
+      return Object.prototype.hasOwnProperty.call(cardFoldOverride, k) ? cardFoldOverride[k] : foldDefault(kind);
+    }
+    function setDetailMode(v) {
+      detailMode = ["standard", "hours", "personnel", "all"].indexOf(v) !== -1 ? v : "standard";
+      try { localStorage.setItem("dpm_detail_mode", detailMode); } catch (e) {}
+      Object.keys(cardFoldOverride).forEach(k => delete cardFoldOverride[k]);
+      const sel = document.getElementById("detailModeSel");
+      if (sel && sel.value !== detailMode) sel.value = detailMode;
+      renderRestaurants();
+    }
+    // Reflect the saved detail level in the header dropdown (runs after the
+    // declaration above, so no temporal-dead-zone trap).
+    (function initDetailModeSel() {
+      const sel = document.getElementById("detailModeSel");
+      if (sel) sel.value = detailMode;
+    })();
+    function toggleCardFold(restId, kind, btn) {
+      const open = !foldIsOpen(restId, kind);
+      cardFoldOverride[restId + ":" + kind] = open;
+      const fold = btn && btn.nextElementSibling;
+      if (fold && fold.classList.contains("cf-fold")) fold.classList.toggle("open", open);
+      if (btn) btn.setAttribute("aria-expanded", open ? "true" : "false");
+    }
+    function cfFold(restId, kind, icon, label, count, rowsHtml) {
+      if (!rowsHtml) return "";
+      const open = foldIsOpen(restId, kind);
+      return `<button type="button" class="cf-fold-btn" aria-expanded="${open ? "true" : "false"}" onmousedown="event.stopPropagation();" onclick="event.stopPropagation(); toggleCardFold('${restId}', '${kind}', this)"><span class="cf-fold-caret">▶</span>${icon} ${label}${count ? ` <span class="cf-fold-count">(${count})</span>` : ""}</button>
+        <div class="cf-fold${open ? " open" : ""}"><div class="cf-fold-inner">${rowsHtml}</div></div>`;
+    }
+
     function cfRow(icon, label, value, copyLabel, trailing) {
       if (!value) return "";
       const v = String(value);
