@@ -2255,7 +2255,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v10.3 Vercel API</span>
+      <span>v10.4 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -3038,7 +3038,7 @@
        shared admins/appMeta node; every client compares on each load, and a
        stale client force-reloads itself with a cache-busting ?v= URL. This is
        the same approach FixMi uses so the two apps stay consistent. */
-    const APP_VERSION = "10.3";
+    const APP_VERSION = "10.4";
     let _versionPublished = false;
 
     function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
@@ -5610,7 +5610,10 @@
       const m = t.match(/^(\d{1,2}):?(\d{2})?\s*(?:-|–|—|to)\s*(\d{1,2}):?(\d{2})?$/i);
       if (m) {
         const pad = n => String(n).padStart(2, "0");
-        return `${pad(m[1])}:${m[2] || "00"} - ${pad(m[3])}:${m[4] || "00"}`;
+        const r = `${pad(m[1])}:${m[2] || "00"} - ${pad(m[3])}:${m[4] || "00"}`;
+        // "00:00 - 23:59" / "00:00 - 00:00" is RAM's way of saying all day.
+        if (/^00:00 - (23:59|00:00|24:00)$/.test(r)) return "Open 24 hours";
+        return r;
       }
       const r12 = parse12hRange(t);
       return r12 || t;   // keep whatever they typed rather than lose it
@@ -5655,7 +5658,7 @@
           return;
         }
         // RAM time line
-        const isRange = /^\d{1,2}:\d{2}\s*[-–—]\s*\d{1,2}:\d{2}$/.test(l) || /^closed$/i.test(l);
+        const isRange = /^\d{1,2}:\d{2}\s*[-–—]\s*\d{1,2}:\d{2}$/.test(l) || /^closed$/i.test(l) || /^(open\s*)?24\s*(h|hr|hrs|hour|hours)$/i.test(l) || /^24\/7$/.test(l);
         if (isRange) {
           if (cur && cur.brand === "bk" && curChan) {
             const i = ramIdx(curChan);
