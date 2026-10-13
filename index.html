@@ -1457,6 +1457,7 @@
     .hours-tools { display: flex; align-items: center; gap: 8px; margin: 4px 0 6px; font-size: 0.7rem; color: var(--t-muted); }
     .hours-tools .btn { padding: 3px 10px; font-size: 0.72rem; }
     .hours-grid { display: grid; grid-template-columns: 34px 1fr 1fr 1fr; gap: 3px 5px; align-items: center; }
+    .hours-grid .hg-h { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .hours-grid .hg-h { font-size: 0.64rem; font-weight: 700; color: var(--t-muted); text-align: center; text-transform: uppercase; letter-spacing: .03em; }
     .hours-grid .hg-d { font-size: 0.7rem; font-weight: 700; color: var(--t-ink-2); }
     .form-group .hours-grid input[type="text"] { width: 100%; box-sizing: border-box; padding: 3px 4px; font-size: 0.72rem; font-family: monospace; text-align: center; }
@@ -2254,7 +2255,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v10.2 Vercel API</span>
+      <span>v10.3 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -2687,7 +2688,8 @@
             <textarea id="hoursPaste" class="hours-paste" rows="3" placeholder="Paste the hours block from the site here (Dining Room / Drive Thru / Delivery lines with 06:00 - 22:00 times) and click Parse" spellcheck="false"></textarea>
             <div class="hours-tools">
               <button type="button" class="btn" onclick="parseHoursPaste()">Parse</button>
-              <span id="hoursParseMsg">Mon → Sun order. Times are 24-hour; leave a box blank if unknown, or type Closed.</span>
+              <button type="button" class="btn" id="hoursShowAllBtn" onclick="hoursToggleAllColumns()" title="Show Mobile Drive-Thru and plain Hours columns too">All columns</button>
+              <span id="hoursParseMsg">Mon → Sun order. 24-hour times; blank = unknown, or type Closed.</span>
             </div>
             <div class="hours-grid" id="hoursGrid"></div>
           </div>
@@ -2854,6 +2856,26 @@
         <div class="bimode-tabs" style="display: flex; gap: 6px; border-bottom: 1px solid var(--t-line-2); padding-bottom: 10px;">
           <button type="button" class="btn btn-xs bimode-tab bimode-on" data-mode="stores" onclick="setBatchMode('stores')">Import Stores</button>
           <button type="button" class="btn btn-xs bimode-tab" data-mode="managers" onclick="setBatchMode('managers')">Update Manager Contacts</button>
+          <button type="button" class="btn btn-xs bimode-tab" data-mode="hours" onclick="setBatchMode('hours')">Store Hours</button>
+        </div>
+
+        <!-- ===== STORE HOURS BULK PASTE ===== -->
+        <div id="bimodeHours" style="display:none; flex-direction: column; gap: 10px;">
+          <div style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.5;">
+            Paste as many stores as you like, straight from RAM's Operation Hours page (select the whole page — the
+            <strong>“… - USA #5316”</strong> header line is how each store is identified) or from a C-store listing
+            (<strong>Monday 5 AM–12 AM … Sunday …</strong> followed by <strong>PQS 6</strong>). Days run Mon → Sun.
+            Breakfast / Lunch / Late Night / Store Arrival lines are ignored. <strong>Nothing is written until you press Apply.</strong>
+          </div>
+          <textarea id="hoursBulkText" class="hours-paste" rows="8" placeholder="Paste here, then click Parse" spellcheck="false"></textarea>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <button type="button" class="btn" onclick="parseHoursBulk()">Parse</button>
+            <span id="hoursBulkSummary" style="font-size:0.76rem; color:var(--t-muted);"></span>
+          </div>
+          <div id="hoursBulkPreview"></div>
+          <div id="hoursBulkApplyBar" style="display:none; justify-content:flex-end; align-items:center; gap:10px;">
+            <button type="button" class="btn btn-success" onclick="applyHoursBulk()">Apply to Database</button>
+          </div>
         </div>
 
         <!-- ===== MANAGER CONTACT IMPORT (new) ===== -->
@@ -3016,7 +3038,7 @@
        shared admins/appMeta node; every client compares on each load, and a
        stale client force-reloads itself with a cache-busting ?v= URL. This is
        the same approach FixMi uses so the two apps stay consistent. */
-    const APP_VERSION = "10.2";
+    const APP_VERSION = "10.3";
     let _versionPublished = false;
 
     function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
@@ -5372,6 +5394,7 @@
         document.getElementById("modalTitle").innerText = titleText;
         
         setupFormFields(type);
+        __hoursShowAll = false; window.__hoursStash = null;
         hoursGridFill(null);
         const hp0 = document.getElementById("hoursPaste"); if (hp0) hp0.value = "";
         syncOpen24();
@@ -5441,9 +5464,10 @@
           document.getElementById("inputAgm").value = item.assistantManager || "";
           document.getElementById("inputAgmCell").value = formatPhoneNumber(item.assistantManagerCell) || "";
           document.getElementById("inputAddress").value = item.address || "";
+          __hoursShowAll = false; window.__hoursStash = item.hoursDetail || null;
           hoursGridFill(item.hoursDetail);
           const hp = document.getElementById("hoursPaste"); if (hp) hp.value = "";
-          const hm = document.getElementById("hoursParseMsg"); if (hm) hm.textContent = "Mon → Sun order. Times are 24-hour; leave a box blank if unknown, or type Closed.";
+          const hm = document.getElementById("hoursParseMsg"); if (hm) hm.textContent = "Mon → Sun order. 24-hour times; blank = unknown, or type Closed.";
           document.getElementById("inputOpen24").checked = !!item.open24;
           syncOpen24();
           
@@ -5506,26 +5530,50 @@
       return Array.from(document.querySelectorAll("#techCatGrid input:checked")).map(i=>i.value);
     }
 
-    // ---- Store hours (three channels x seven days) ----
+    // ---- Store hours: up to five channels x seven days (Mon..Sun) ----
+    // RAM pastes give Dining / Drive Thru / Mobile Order Drive Thru / Delivery.
+    // C-store pastes ("Monday  5 AM–12 AM" ... "PQS 6") give one set: "store".
     const HOURS_CHANNELS = [
-      { key: "dining",    label: "Dining",     icon: "🍽", match: /dining|lobby|front/i },
-      { key: "driveThru", label: "Drive-Thru", icon: "🚗", match: /drive/i },
-      { key: "delivery",  label: "Delivery",   icon: "🛵", match: /deliver/i }
+      { key: "store",     label: "Hours",            icon: "🕒", match: null,          core: false },
+      { key: "dining",    label: "Dining",           icon: "🍽", match: /dining|lobby|front/i, core: true },
+      { key: "driveThru", label: "Drive-Thru",       icon: "🚗", match: /drive/i,      core: true },
+      { key: "mobileDT",  label: "Mobile Drive-Thru",icon: "📱", match: /mobile/i,     core: false },
+      { key: "delivery",  label: "Delivery",         icon: "🛵", match: /deliver/i,    core: true }
     ];
     const HOURS_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const HOURS_DAY_RE = /^(mon|tue|wed|thu|fri|sat|sun)[a-z]*\.?\s*[:\-–]?\s+(.+)$/i;
+    let __hoursShowAll = false;
 
-    function hoursGridBuild() {
+    function hoursChannelFor(label) {
+      // "Mobile Order Drive T..." must win over the plain /drive/ test.
+      if (/mobile/i.test(label)) return "mobileDT";
+      const c = HOURS_CHANNELS.find(c => c.match && c.match.test(label));
+      return c ? c.key : null;
+    }
+    function hoursEmptyDetail() { const o = {}; HOURS_CHANNELS.forEach(c => o[c.key] = ["", "", "", "", "", "", ""]); return o; }
+    function hoursDetailHas(detail, key) { return !!(detail && Array.isArray(detail[key]) && detail[key].some(Boolean)); }
+    function hoursDetailAny(detail) { return HOURS_CHANNELS.some(c => hoursDetailHas(detail, c.key)); }
+    // Which grid columns to show: core three always, others when they have data.
+    function hoursVisibleChannels(detail) {
+      return HOURS_CHANNELS.filter(c => __hoursShowAll || c.core || hoursDetailHas(detail, c.key));
+    }
+
+    function hoursGridBuild(detail) {
       const g = document.getElementById("hoursGrid");
-      if (!g || g.children.length) return;
-      let h = `<div></div>` + HOURS_CHANNELS.map(c => `<div class="hg-h">${c.icon} ${c.label}</div>`).join("");
+      if (!g) return;
+      const chans = hoursVisibleChannels(detail);
+      g.style.gridTemplateColumns = "34px " + chans.map(() => "1fr").join(" ");
+      let h = `<div></div>` + chans.map(c => `<div class="hg-h">${c.icon} ${c.label}</div>`).join("");
       HOURS_DAYS.forEach((d, i) => {
-        h += `<div class="hg-d">${d}</div>` + HOURS_CHANNELS.map(c =>
+        h += `<div class="hg-d">${d}</div>` + chans.map(c =>
           `<input type="text" id="hrs_${c.key}_${i}" placeholder="06:00 - 22:00" autocomplete="off">`).join("");
       });
       g.innerHTML = h;
+      const tog = document.getElementById("hoursShowAllBtn");
+      if (tog) tog.textContent = __hoursShowAll ? "Fewer columns" : "All columns";
     }
     function hoursGridFill(detail) {
-      hoursGridBuild();
+      hoursGridBuild(detail);
       HOURS_CHANNELS.forEach(c => {
         const arr = (detail && Array.isArray(detail[c.key])) ? detail[c.key] : [];
         for (let i = 0; i < 7; i++) {
@@ -5534,60 +5582,114 @@
         }
       });
     }
-    // Read the grid back into {dining:[7], driveThru:[7], delivery:[7]} or null if empty.
+    function hoursToggleAllColumns() {
+      const cur = hoursGridRead() || hoursEmptyDetail();
+      __hoursShowAll = !__hoursShowAll;
+      hoursGridFill(cur);
+    }
+    // Read the grid back into {store:[7], dining:[7], ...} or null if empty.
+    // Hidden channels are read from the previously filled data (kept in a stash).
     function hoursGridRead() {
-      const out = {}; let any = false;
+      const out = hoursEmptyDetail(); let any = false;
       HOURS_CHANNELS.forEach(c => {
-        out[c.key] = [];
         for (let i = 0; i < 7; i++) {
           const el = document.getElementById(`hrs_${c.key}_${i}`);
-          const v = normalizeHoursRange(el ? el.value : "");
+          const v = el ? normalizeHoursRange(el.value) : (window.__hoursStash && window.__hoursStash[c.key] ? (window.__hoursStash[c.key][i] || "") : "");
           if (v) any = true;
-          out[c.key].push(v);
+          out[c.key][i] = v;
         }
       });
       return any ? out : null;
     }
-    // "06:00 - 22:00" / "6:00-22:00" / "closed" -> canonical "06:00 - 22:00" | "Closed" | "".
+    // "06:00 - 22:00" / "6:00-22:00" / "closed" / "24 hours" -> canonical.
     function normalizeHoursRange(v) {
       const t = String(v || "").trim();
       if (!t) return "";
       if (/^closed$/i.test(t)) return "Closed";
-      const m = t.match(/^(\d{1,2}):?(\d{2})?\s*[-–—to]+\s*(\d{1,2}):?(\d{2})?$/i);
-      if (!m) return t;   // keep whatever they typed rather than lose it
-      const pad = n => String(n).padStart(2, "0");
-      return `${pad(m[1])}:${m[2] || "00"} - ${pad(m[3])}:${m[4] || "00"}`;
+      if (/24\s*(h|hr|hrs|hours)|24\/7|all day/i.test(t)) return "Open 24 hours";
+      const m = t.match(/^(\d{1,2}):?(\d{2})?\s*(?:-|–|—|to)\s*(\d{1,2}):?(\d{2})?$/i);
+      if (m) {
+        const pad = n => String(n).padStart(2, "0");
+        return `${pad(m[1])}:${m[2] || "00"} - ${pad(m[3])}:${m[4] || "00"}`;
+      }
+      const r12 = parse12hRange(t);
+      return r12 || t;   // keep whatever they typed rather than lose it
     }
-    // Parse the block copied from the site: label line, then "HH:MM - HH:MM"
-    // line, repeated; each channel's 7 lines run Mon..Sun.
-    function parseHoursText(text) {
+    // "5 AM–12 AM", "5:30 AM - 11 PM", "6am-10pm" -> "05:00 - 00:00"
+    function parse12hRange(t) {
+      const m = String(t).match(/^(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m?\.?\s*(?:-|–|—|to)\s*(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m?\.?$/i);
+      if (!m) return "";
+      const to24 = (h, mm, ap) => { h = parseInt(h, 10) % 12; if (/p/i.test(ap)) h += 12; return String(h).padStart(2, "0") + ":" + (mm || "00"); };
+      return `${to24(m[1], m[2], m[3])} - ${to24(m[4], m[5], m[6])}`;
+    }
+
+    // Parse one or many pasted blocks. Returns [{storeNo, brand, detail, matched}].
+    //  - RAM: header "... - USA #5316" (optional), then label/time line pairs,
+    //    each channel's 7 lines Mon..Sun. Sections we don't track are skipped.
+    //  - C-store: "Monday  5 AM–12 AM" x7, then "PQS 6" (or "Paradise Quick Stop #6").
+    function parseHoursBlocks(text) {
       const lines = String(text || "").split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-      const groups = {}; HOURS_CHANNELS.forEach(c => groups[c.key] = []);
-      let current = null, matched = 0;
+      const blocks = [];
+      let cur = null, curChan = null;
+      const newBlock = (brand, storeNo) => { cur = { brand, storeNo: storeNo || "", detail: hoursEmptyDetail(), matched: 0, counts: {} }; curChan = null; blocks.push(cur); return cur; };
+      const ramIdx = key => { cur.counts[key] = cur.counts[key] || 0; return cur.counts[key]++; };
       lines.forEach(l => {
-        const isTime = /^\d{1,2}:\d{2}\s*[-–—]\s*\d{1,2}:\d{2}$/.test(l) || /^closed$/i.test(l);
-        if (isTime) {
-          if (current) { groups[current].push(normalizeHoursRange(l)); matched++; }
+        // RAM header: "3306 South Eastman Road LONGVIEW, Texas ... - USA #5316"
+        let m = l.match(/(?:USA|US|-)\s*#\s*(\d{3,6})\s*$/i) || (/^#\s*\d{3,6}$/.test(l) ? l.match(/#\s*(\d{3,6})/) : null);
+        if (m) { newBlock("bk", m[1]); return; }
+        // C-store id: "PQS 6", "PQS #06", "Paradise Quick Stop #6"
+        m = l.match(/^(?:pqs|paradise\s+quick\s+stop|quick\s+stop|qs)\s*#?\s*(\d{1,3})\s*$/i);
+        if (m) {
+          if (!cur || cur.brand !== "cstore" || cur.storeNo) newBlock("cstore", "");
+          cur.storeNo = String(parseInt(m[1], 10)); curChan = null; return;
+        }
+        // C-store day line: "Monday  5 AM–12 AM" / "Sun Closed" / "Sat 24 hours"
+        m = l.match(HOURS_DAY_RE);
+        if (m) {
+          const di = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"].indexOf(m[1].slice(0, 3).toLowerCase());
+          const val = normalizeHoursRange(m[2]);
+          if (di !== -1 && val && (val !== m[2].trim() || /closed|24/i.test(val))) {
+            if (!cur || cur.brand !== "cstore" || cur.storeNo || cur.detail.store[di]) newBlock("cstore", "");
+            cur.detail.store[di] = val; cur.matched++;
+          }
           return;
         }
-        const ch = HOURS_CHANNELS.find(c => c.match.test(l));
-        current = ch ? ch.key : null;
+        // RAM time line
+        const isRange = /^\d{1,2}:\d{2}\s*[-–—]\s*\d{1,2}:\d{2}$/.test(l) || /^closed$/i.test(l);
+        if (isRange) {
+          if (cur && cur.brand === "bk" && curChan) {
+            const i = ramIdx(curChan);
+            if (i < 7) { cur.detail[curChan][i] = normalizeHoursRange(l); cur.matched++; }
+          }
+          return;
+        }
+        if (/^\d{1,2}:\d{2}$/.test(l)) return;   // single times (Store Arrival) - skip
+        // RAM label line
+        const ck = hoursChannelFor(l);
+        if (ck) {
+          if (!cur || cur.brand !== "bk") newBlock("bk", "");
+          curChan = ck;
+        } else if (cur && cur.brand === "bk") {
+          curChan = null;   // Breakfast / Lunch / Late Night / Truck Delivery...
+        }
       });
-      const out = {}; let any = false;
-      HOURS_CHANNELS.forEach(c => {
-        const arr = groups[c.key].slice(0, 7);
-        while (arr.length < 7) arr.push("");
-        if (groups[c.key].length) any = true;
-        out[c.key] = arr;
-      });
-      return { detail: any ? out : null, matched, counts: HOURS_CHANNELS.map(c => groups[c.key].length) };
+      return blocks.filter(b => hoursDetailAny(b.detail));
+    }
+    // Back-compat single-block parse used by the edit modal.
+    function parseHoursText(text) {
+      const blocks = parseHoursBlocks(text);
+      const b = blocks[0];
+      return { detail: b ? b.detail : null, matched: b ? b.matched : 0, blocks };
+    }
+    function hoursBlockSummary(detail) {
+      return HOURS_CHANNELS.filter(c => hoursDetailHas(detail, c.key)).map(c => `${c.label} ${detail[c.key].filter(Boolean).length}/7`).join(", ");
     }
     function parseHoursPaste() {
       const ta = document.getElementById("hoursPaste"), msg = document.getElementById("hoursParseMsg");
       const res = parseHoursText(ta ? ta.value : "");
-      if (!res.detail) { if (msg) msg.textContent = "Nothing recognized — expected lines like “Drive Thru” then “06:00 - 02:00”."; return; }
+      if (!res.detail) { if (msg) msg.textContent = "Nothing recognized — expected RAM lines like “Drive Thru” / “06:00 - 02:00”, or “Monday  5 AM–12 AM”."; return; }
       hoursGridFill(res.detail);
-      if (msg) msg.textContent = `Filled ${res.matched} entries (` + HOURS_CHANNELS.map((c, i) => `${c.label} ${res.counts[i]}`).join(", ") + `). Check Mon → Sun order, then Save.`;
+      if (msg) msg.textContent = `Filled: ${hoursBlockSummary(res.detail)}.` + (res.blocks.length > 1 ? ` (${res.blocks.length} stores pasted — only the first was used here; use Batch Import → Store Hours for many.)` : "") + " Check Mon → Sun, then Save.";
       if (ta) ta.value = "";
     }
     // "Open 24 hours" greys out the paste box and grid.
@@ -5610,6 +5712,7 @@
     function fmtHoursRange(v) {
       if (!v) return "";
       if (/^closed$/i.test(v)) return "Closed";
+      if (/^open 24 hours$/i.test(v)) return "24 hours";
       const m = String(v).match(/^(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})$/);
       return m ? `${fmtClock(m[1])} – ${fmtClock(m[2])}` : v;
     }
@@ -5624,7 +5727,7 @@
         if (last && last.v === vals[i]) last.end = i; else runs.push({ v: vals[i], start: i, end: i });
       }
       const shown = runs.filter(r => r.v);
-      if (shown.length === 1 && shown[0].start === 0 && shown[0].end === 6) return "Daily " + fmtHoursRange(shown[0].v);
+      if (shown.length === 1 && shown[0].start === 0 && shown[0].end === 6) return (/^open 24/i.test(shown[0].v) ? "Open 24 hours" : "Daily " + fmtHoursRange(shown[0].v));
       return shown.map(r => (r.start === r.end ? HOURS_DAYS[r.start] : `${HOURS_DAYS[r.start]}–${HOURS_DAYS[r.end]}`) + " " + fmtHoursRange(r.v)).join(" · ");
     }
     // Lines for the card / Copy All: [{icon,label,text}]
@@ -5640,6 +5743,69 @@
       return out;
     }
     function storeHoursText(r) { return storeHoursLines(r).map(l => (l.label === "Hours" ? "" : l.label + ": ") + l.text).join(" | "); }
+
+    // ---- Bulk hours import (Batch Import → Store Hours) ----
+    let _hoursImportRows = null;
+    function storeNumberDigits(r) { return String((r && r.storeNumber) || "").replace(/\D/g, "").replace(/^0+/, ""); }
+    function isCStoreRec(r) { const n = ((r && r.storeName) || "").toLowerCase(); return storeDivision(r) === "cstore" || /quick stop|pqs|paradise qs/.test(n); }
+    function matchStoreForHours(block) {
+      const want = String(block.storeNo || "").replace(/^0+/, "");
+      if (!want) return "";
+      const ids = Object.keys(restaurants).filter(id => storeNumberDigits(restaurants[id]) === want);
+      if (!ids.length) return "";
+      const pref = ids.filter(id => block.brand === "cstore" ? isCStoreRec(restaurants[id]) : !isCStoreRec(restaurants[id]));
+      return (pref[0] || (ids.length === 1 ? ids[0] : "")) || "";
+    }
+    function parseHoursBulk() {
+      const ta = document.getElementById("hoursBulkText");
+      const blocks = parseHoursBlocks(ta ? ta.value : "");
+      _hoursImportRows = blocks.map(b => Object.assign(b, { storeId: matchStoreForHours(b) }));
+      renderHoursBulkPreview();
+    }
+    function hoursBulkStoreOptions(sel) {
+      const ids = Object.keys(restaurants).sort((a, b) => (restaurants[a].storeName || "").localeCompare(restaurants[b].storeName || ""));
+      return `<option value="">— pick store —</option>` + ids.map(id => `<option value="${id}"${id === sel ? " selected" : ""}>${escapeHtml(restaurants[id].storeNumber || "")} ${escapeHtml(restaurants[id].storeName || "")}</option>`).join("");
+    }
+    function setHoursBulkStore(i, id) { if (_hoursImportRows && _hoursImportRows[i]) { _hoursImportRows[i].storeId = id; renderHoursBulkPreview(); } }
+    function removeHoursBulkRow(i) { if (_hoursImportRows) { _hoursImportRows.splice(i, 1); renderHoursBulkPreview(); } }
+    function renderHoursBulkPreview() {
+      const host = document.getElementById("hoursBulkPreview"), bar = document.getElementById("hoursBulkApplyBar"), sum = document.getElementById("hoursBulkSummary");
+      if (!host) return;
+      const rows = _hoursImportRows || [];
+      if (!rows.length) { host.innerHTML = `<div style="color:var(--t-muted); font-size:0.78rem; padding:8px;">Nothing recognized yet.</div>`; if (bar) bar.style.display = "none"; return; }
+      host.innerHTML = `<div style="max-height:300px; overflow:auto; border:1px solid var(--t-line-2); border-radius:6px;"><table style="width:100%; border-collapse:collapse; font-size:0.74rem;">
+        <thead><tr style="background:var(--t-surface-2);"><th style="text-align:left; padding:5px 8px;">Pasted</th><th style="text-align:left; padding:5px 8px;">FindMi store</th><th style="text-align:left; padding:5px 8px;">Hours found</th><th></th></tr></thead><tbody>` +
+        rows.map((b, i) => {
+          const ok = !!b.storeId;
+          return `<tr style="border-top:1px solid var(--t-line-2); ${ok ? "" : "background:var(--t-warn-bg);"}">
+            <td style="padding:5px 8px; white-space:nowrap;"><strong>${b.brand === "cstore" ? "PQS " : "#"}${escapeHtml(b.storeNo || "?")}</strong></td>
+            <td style="padding:5px 8px;"><select class="control-select" style="font-size:0.72rem; max-width:220px;" onchange="setHoursBulkStore(${i}, this.value)">${hoursBulkStoreOptions(b.storeId)}</select></td>
+            <td style="padding:5px 8px; color:var(--t-ink-2);">${escapeHtml(hoursBlockSummary(b.detail))}</td>
+            <td style="padding:5px 8px; text-align:right;"><button type="button" class="btn btn-xs" onclick="removeHoursBulkRow(${i})" title="Skip this one">✕</button></td></tr>`;
+        }).join("") + `</tbody></table></div>`;
+      const matched = rows.filter(b => b.storeId).length;
+      if (sum) sum.textContent = `${matched} of ${rows.length} matched to a store.` + (matched < rows.length ? " Pick a store for the highlighted rows or ✕ them." : "");
+      if (bar) bar.style.display = "flex";
+    }
+    function applyHoursBulk() {
+      const rows = (_hoursImportRows || []).filter(b => b.storeId);
+      if (!rows.length) return;
+      performLockedAction(() => {
+        const updates = {};
+        rows.forEach(b => {
+          updates[`restaurants/${b.storeId}/hoursDetail`] = b.detail;
+          updates[`restaurants/${b.storeId}/open24`] = false;
+        });
+        db.ref().update(updates, (err) => {
+          if (err) { alert("Error saving hours: " + err.message); return; }
+          showToast(`Hours saved for ${rows.length} store${rows.length === 1 ? "" : "s"}`);
+          _hoursImportRows = null;
+          const ta = document.getElementById("hoursBulkText"); if (ta) ta.value = "";
+          renderHoursBulkPreview();
+          closeBatchImportModal();
+        });
+      });
+    }
 
     function setupFormFields(type) {
       const isStore = type === "restaurant";
@@ -6095,8 +6261,12 @@
       document.getElementById("batchImportModal").classList.add("active");
       setBatchMode("stores");
       initMgrImport();
-      // Reset any prior manager-import state.
+      // Reset any prior manager-import / hours-import state.
       _mgrImportRows = null;
+      _hoursImportRows = null;
+      const hb = document.getElementById("hoursBulkText"); if (hb) hb.value = "";
+      const hbp = document.getElementById("hoursBulkPreview"); if (hbp) hbp.innerHTML = "";
+      const hba = document.getElementById("hoursBulkApplyBar"); if (hba) hba.style.display = "none";
       const mp = document.getElementById("mgrPreview"); if (mp) mp.innerHTML = "";
       const mb = document.getElementById("mgrApplyBar"); if (mb) mb.style.display = "none";
       const mf = document.getElementById("mgrFileName"); if (mf) mf.innerText = "No file selected";
@@ -6116,6 +6286,7 @@
       });
       document.getElementById("bimodeStores").style.display = mode === "stores" ? "flex" : "none";
       document.getElementById("bimodeManagers").style.display = mode === "managers" ? "flex" : "none";
+      const bh = document.getElementById("bimodeHours"); if (bh) bh.style.display = mode === "hours" ? "flex" : "none";
       // Footer controls belong to the store importer only.
       document.getElementById("batchImportBtn").style.display = mode === "stores" ? "" : "none";
       document.getElementById("batchGeocodeLabel").style.display = mode === "stores" ? "flex" : "none";
