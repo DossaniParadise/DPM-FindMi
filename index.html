@@ -2255,7 +2255,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v10.4 Vercel API</span>
+      <span>v10.5 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -3038,7 +3038,7 @@
        shared admins/appMeta node; every client compares on each load, and a
        stale client force-reloads itself with a cache-busting ?v= URL. This is
        the same approach FixMi uses so the two apps stay consistent. */
-    const APP_VERSION = "10.4";
+    const APP_VERSION = "10.5";
     let _versionPublished = false;
 
     function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
@@ -5601,30 +5601,48 @@
       });
       return any ? out : null;
     }
-    // "06:00 - 22:00" / "6:00-22:00" / "closed" / "24 hours" -> canonical.
+    // Any single clock time -> "HH:MM" (24h). Accepts 06:00, 6:00, 6.30, 0600,
+    // 5 AM, 5.30am, 5:30 p.m., 17h, noon, midnight. Returns {hm, hadMeridiem}.
+    function parseClockToken(raw) {
+      let t = String(raw || "").trim().toLowerCase().replace(/\s+/g, " ");
+      if (!t) return null;
+      if (/^(noon|12 ?noon|midday)$/.test(t)) return { hm: "12:00", hadMeridiem: true };
+      if (/^(midnight|12 ?midnight)$/.test(t)) return { hm: "00:00", hadMeridiem: true };
+      t = t.replace(/^(\d{1,2})\s*h$/, "$1:00");   // "17h"
+      const m = t.match(/^(\d{1,2})(?:[:.h](\d{2}))?(\d{2})?\s*(a\.?\s*m\.?|p\.?\s*m\.?|a|p)?\.?$/);
+      if (!m) return null;
+      let h = parseInt(m[1], 10);
+      let mm = m[2] || m[3] || "00";
+      if (m[3] && !m[2] && m[1].length === 2) { /* "0600" */ h = parseInt(m[1], 10); mm = m[3]; }
+      const mer = m[4] ? m[4][0] : "";
+      if (mer) { h = h % 12; if (mer === "p") h += 12; }
+      if (h > 24 || parseInt(mm, 10) > 59) return null;
+      if (h === 24) h = 0;
+      return { hm: String(h).padStart(2, "0") + ":" + mm, hadMeridiem: !!mer };
+    }
+    // "06:00 - 22:00" / "5.30 AM–10 AM" / "5–10 PM" / "closed" / "24 hours" -> canonical
+    // "HH:MM - HH:MM" | "Closed" | "Open 24 hours" | "" (or the raw text if unparseable).
     function normalizeHoursRange(v) {
-      const t = String(v || "").trim();
+      const t = String(v || "").trim().replace(/\s+/g, " ");
       if (!t) return "";
       if (/^closed$/i.test(t)) return "Closed";
-      if (/24\s*(h|hr|hrs|hours)|24\/7|all day/i.test(t)) return "Open 24 hours";
-      const m = t.match(/^(\d{1,2}):?(\d{2})?\s*(?:-|–|—|to)\s*(\d{1,2}):?(\d{2})?$/i);
-      if (m) {
-        const pad = n => String(n).padStart(2, "0");
-        const r = `${pad(m[1])}:${m[2] || "00"} - ${pad(m[3])}:${m[4] || "00"}`;
-        // "00:00 - 23:59" / "00:00 - 00:00" is RAM's way of saying all day.
-        if (/^00:00 - (23:59|00:00|24:00)$/.test(r)) return "Open 24 hours";
-        return r;
+      if (/24\s*(h|hr|hrs|hour|hours)|24\/7|all day|open 24/i.test(t)) return "Open 24 hours";
+      const parts = t.split(/\s*(?:-|–|—|to|until|till)\s*/i).filter(Boolean);
+      if (parts.length !== 2) return t;
+      const b = parseClockToken(parts[1]);
+      let a = parseClockToken(parts[0]);
+      if (!a || !b) return t;
+      // "5–10 PM": the first time borrows the second's AM/PM when it has none.
+      if (!a.hadMeridiem && b.hadMeridiem) {
+        const ah = parseInt(a.hm.slice(0, 2), 10), bh = parseInt(b.hm.slice(0, 2), 10);
+        if (ah <= 12 && bh >= 12 && (ah % 12) < (bh % 12)) a = { hm: String((ah % 12) + 12).padStart(2, "0") + a.hm.slice(2), hadMeridiem: true };
       }
-      const r12 = parse12hRange(t);
-      return r12 || t;   // keep whatever they typed rather than lose it
+      const r = `${a.hm} - ${b.hm}`;
+      // "00:00 - 23:59" / "00:00 - 00:00" is RAM's way of saying all day.
+      if (/^00:00 - (23:59|00:00)$/.test(r)) return "Open 24 hours";
+      return r;
     }
-    // "5 AM–12 AM", "5:30 AM - 11 PM", "6am-10pm" -> "05:00 - 00:00"
-    function parse12hRange(t) {
-      const m = String(t).match(/^(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m?\.?\s*(?:-|–|—|to)\s*(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m?\.?$/i);
-      if (!m) return "";
-      const to24 = (h, mm, ap) => { h = parseInt(h, 10) % 12; if (/p/i.test(ap)) h += 12; return String(h).padStart(2, "0") + ":" + (mm || "00"); };
-      return `${to24(m[1], m[2], m[3])} - ${to24(m[4], m[5], m[6])}`;
-    }
+    function parse12hRange(t) { const r = normalizeHoursRange(t); return /^\d{2}:\d{2} - \d{2}:\d{2}$/.test(r) ? r : ""; }
 
     // Parse one or many pasted blocks. Returns [{storeNo, brand, detail, matched}].
     //  - RAM: header "... - USA #5316" (optional), then label/time line pairs,
@@ -5651,18 +5669,19 @@
         if (m) {
           const di = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"].indexOf(m[1].slice(0, 3).toLowerCase());
           const val = normalizeHoursRange(m[2]);
-          if (di !== -1 && val && (val !== m[2].trim() || /closed|24/i.test(val))) {
+          if (di !== -1 && /^(\d{2}:\d{2} - \d{2}:\d{2}|Closed|Open 24 hours)$/.test(val)) {
             if (!cur || cur.brand !== "cstore" || cur.storeNo || cur.detail.store[di]) newBlock("cstore", "");
             cur.detail.store[di] = val; cur.matched++;
           }
           return;
         }
         // RAM time line
-        const isRange = /^\d{1,2}:\d{2}\s*[-–—]\s*\d{1,2}:\d{2}$/.test(l) || /^closed$/i.test(l) || /^(open\s*)?24\s*(h|hr|hrs|hour|hours)$/i.test(l) || /^24\/7$/.test(l);
+        const normalized = normalizeHoursRange(l);
+        const isRange = /^(\d{2}:\d{2} - \d{2}:\d{2}|Closed|Open 24 hours)$/.test(normalized);
         if (isRange) {
           if (cur && cur.brand === "bk" && curChan) {
             const i = ramIdx(curChan);
-            if (i < 7) { cur.detail[curChan][i] = normalizeHoursRange(l); cur.matched++; }
+            if (i < 7) { cur.detail[curChan][i] = normalized; cur.matched++; }
           }
           return;
         }
