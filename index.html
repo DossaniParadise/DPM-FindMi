@@ -1932,7 +1932,7 @@
        old accordion/stack rules - the desktop 3-column layout simply isn't
        reflowed on phones, it's swapped for a single scrolling view.
        ================================================================== */
-    @media (max-width: 768px) {
+    @media (max-width: 768px), ((max-height: 550px) and (max-width: 1024px)) {
       body { overflow: hidden; height: 100vh; overscroll-behavior: none; }
 
       header { padding: 8px 12px; flex-wrap: nowrap; gap: 6px 10px; align-items: center; }
@@ -2022,8 +2022,9 @@
       body.map-kiosk-active #historyTrayFab { display: none; }
     }
 
-    /* Tab bar is mobile-only. */
-    .m-tabs { display: none; }
+    /* Tab bar + Filters button are mobile-only (desktop hides them; the phone block shows them). */
+    @media (min-width: 769px) { .m-tabs, .m-filter-btn { display: none !important; } }
+    .m-filter-btn { display: none; }
 
 
     /* Universal Landscape Mobile / Compact devices height checks (< 550px) */
@@ -2228,6 +2229,79 @@
 
     /* Close buttons are hidden unless the mobile query turns them on. */
     .map-drawer-close { display: none; }
+
+    /* ==================================================================
+       PHONE LAYOUT (consolidated). Appended last on purpose so it wins over
+       the older, partly conflicting mobile rules above. Desktop untouched.
+       One section at a time, full height, scrolling top to bottom; header =
+       logo row + full-width search; bottom tab bar switches sections.
+       Landscape phones (wider than 768 but short) get the same shell.
+       ================================================================== */
+    @media (max-width: 768px), ((max-height: 550px) and (max-width: 1024px)) {
+      header {
+        flex-wrap: wrap !important; align-items: center;
+        padding: 8px 12px 8px !important; gap: 6px 8px !important;
+        padding-top: calc(8px + env(safe-area-inset-top, 0px)) !important;
+      }
+      .header-logo { order: 1; flex: 1 1 auto; min-width: 0; }
+      .header-logo h1 { font-size: 1.05rem !important; letter-spacing: .01em; }
+      .header-actions { order: 2; margin-left: auto; gap: 8px !important; flex-shrink: 0; }
+      .global-search-wrap {
+        order: 3 !important; flex: 1 1 100% !important; width: 100%; max-width: none !important; margin: 2px 0 0 !important;
+      }
+      .global-search-input { font-size: 16px !important; padding: 10px 36px 10px 36px !important; }
+      .global-search-icon { left: 13px; font-size: 0.95rem; }
+      .global-search-clear { right: 10px; width: 26px; height: 26px; }
+      /* Tiles carry their own Hours / Personnel buttons; the dropdown just eats header width. */
+      .detail-mode-sel { display: none !important; }
+      .theme-toggle { margin-left: 0 !important; width: 36px !important; height: 36px !important; }
+      /* Directory/Map switch: keep the switch + map icon only. */
+      .view-toggle-container { gap: 5px !important; }
+      .view-toggle-container > span:first-child { display: none !important; }
+
+      /* Workspace: the active section fills the space between header and tab bar. */
+      .dashboard-container {
+        padding: 6px 6px 0 !important; gap: 0 !important; overflow: hidden !important;
+        padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)) !important;
+      }
+      .column.m-active { display: flex !important; flex-direction: column !important; height: 100% !important; border-radius: 12px; }
+      .m-panel.m-active {
+        display: flex !important; flex-direction: column !important;
+        flex: 1 1 auto !important; min-height: 0 !important; max-height: none !important; height: 100% !important;
+      }
+      .panel-flex .cards-list, .column .cards-list { flex: 1 1 auto !important; min-height: 0 !important; overflow-y: auto !important; }
+      .cards-list { padding: 8px 6px 110px !important; }
+      .column-header { padding: 10px 12px !important; }
+      .column-title { font-size: 0.78rem !important; }
+      .column-controls, .store-filters { gap: 6px !important; }
+      .control-select { font-size: 16px !important; padding: 8px 10px !important; }
+
+      /* Cards: no drag grip on touch, bigger text, clear tap affordance. */
+      .drag-grip, .col-resizer { display: none !important; }
+      .card-title { gap: 8px !important; }
+      .cf-row { font-size: 0.92rem !important; }
+      .cf-fold-btn { padding: 7px 14px 7px 11px !important; font-size: 0.82rem !important; margin: 6px 6px 4px 0 !important; }
+      .m-act { min-height: 48px; }
+      .card.expanded .cf-sections { grid-template-columns: 1fr !important; }
+
+      /* Stores: Sort + filters live behind the ⚙ Filters button. */
+      .m-filter-btn { display: inline-flex !important; align-items: center; gap: 4px; background: var(--t-surface); color: var(--t-ink-2); border: 1px solid var(--t-line-2); margin-right: 6px; }
+      .m-filter-btn.has-filters { background: var(--t-info-bg); color: var(--t-info-fg); border-color: var(--t-info-line); }
+      .m-filter-btn[aria-expanded="true"] { background: var(--t-brand); color: #fff; border-color: var(--t-brand); }
+      .column[data-col="store"] .column-action-bar { display: none !important; }
+      .column[data-col="store"].m-filters-open .column-action-bar { display: flex !important; }
+
+      /* Bottom tab bar: always present on phones. */
+      .m-tabs { display: flex !important; }
+      .m-tab { font-size: .62rem; padding: 6px 2px 4px; }
+      @media (max-height: 550px) {
+        .m-tab { padding: 3px 2px 2px; font-size: .58rem; }
+        .m-tab-ico { width: 22px; height: 22px; }
+        .global-search-input { padding: 7px 36px !important; }
+        .dashboard-container { padding-bottom: calc(50px + env(safe-area-inset-bottom, 0px)) !important; }
+      }
+      body.map-kiosk-active .m-tabs { display: none !important; }
+    }
   </style>
 </head>
 <body>
@@ -2255,7 +2329,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v10.5 Vercel API</span>
+      <span>v10.6 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -2436,6 +2510,7 @@
           <span class="column-counter" id="restaurantCount">0</span>
         </div>
         <div style="display: flex;">
+          <button type="button" class="btn btn-xs m-filter-btn" id="mFilterBtn" onclick="mToggleStoreFilters()" aria-expanded="false">⚙ Filters</button>
           <button class="btn btn-primary btn-xs edit-only" onclick="openCreateModal('restaurant')">+ Add Store</button>
           <button class="btn btn-success btn-xs edit-only" onclick="openBatchImportModal()" style="margin-left: 6px;">Batch Import</button>
           <button class="btn btn-xs" onclick="openExportModal()" style="margin-left: 6px; background:#0f766e; color:#fff;">⬇ Export</button>
@@ -2582,18 +2657,18 @@
   <!-- Mobile bottom tab bar. Icons are inline SVG (emoji render differently per
        device and would break the monochrome look). Stores is the default view. -->
   <nav class="m-tabs" id="mTabs" aria-label="Sections">
-    <button class="m-tab" data-tab="vp" onclick="mShow('vp')" aria-label="Support Staff">
-      <span class="m-tab-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 6.5a3 3 0 0 1 0 6"/><path d="M17.5 14.5a5.5 5.5 0 0 1 3 5.5"/></svg><i class="m-dot" id="mnVp"></i></span>Staff</button>
-    <button class="m-tab" data-tab="director" onclick="mShow('director')" aria-label="Directors">
-      <span class="m-tab-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/><path d="M9 13.5 12 17l3-3.5"/></svg><i class="m-dot" id="mnDirector"></i></span>Directors</button>
-    <button class="m-tab" data-tab="technician" onclick="mShow('technician')" aria-label="Repair technicians">
-      <span class="m-tab-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 3.5a4.5 4.5 0 0 0-5.9 5.7L3.4 15.4a2 2 0 0 0 2.8 2.8l6.2-6.2a4.5 4.5 0 0 0 5.7-5.9l-2.7 2.7-2.3-.6-.6-2.3 2.7-2.7Z"/></svg><i class="m-dot" id="mnTech"></i></span>Techs</button>
-    <button class="m-tab" data-tab="coach" onclick="mShow('coach')" aria-label="Area coaches">
-      <span class="m-tab-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3.5h6v3H9z"/><path d="M8.5 11h7M8.5 15h4.5"/></svg><i class="m-dot" id="mnCoach"></i></span>DMs</button>
-    <button class="m-tab" data-tab="entity" onclick="mShow('entity')" aria-label="Legal entities">
-      <span class="m-tab-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21V6l7-3 7 3v15"/><path d="M4 21h16"/><path d="M9 9h1.5M13.5 9H15M9 13h1.5M13.5 13H15M9 17h6"/></svg><i class="m-dot" id="mnEntity"></i></span>Entities</button>
     <button class="m-tab on" data-tab="store" onclick="mShow('store')" aria-label="Stores">
       <span class="m-tab-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10h16v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-9Z"/><path d="M3.5 10 5 4.5h14L20.5 10"/><path d="M9.5 14h5"/></svg><i class="m-dot" id="mnStore"></i></span>Stores</button>
+    <button class="m-tab" data-tab="coach" onclick="mShow('coach')" aria-label="District Managers">
+      <span class="m-tab-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3.5h6v3H9z"/><path d="M8.5 11h7M8.5 15h4.5"/></svg><i class="m-dot" id="mnCoach"></i></span>DMs</button>
+    <button class="m-tab" data-tab="director" onclick="mShow('director')" aria-label="Directors">
+      <span class="m-tab-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/><path d="M9 13.5 12 17l3-3.5"/></svg><i class="m-dot" id="mnDirector"></i></span>Directors</button>
+    <button class="m-tab" data-tab="vp" onclick="mShow('vp')" aria-label="Support Staff">
+      <span class="m-tab-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 6.5a3 3 0 0 1 0 6"/><path d="M17.5 14.5a5.5 5.5 0 0 1 3 5.5"/></svg><i class="m-dot" id="mnVp"></i></span>Staff</button>
+    <button class="m-tab" data-tab="technician" onclick="mShow('technician')" aria-label="Repair technicians">
+      <span class="m-tab-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 3.5a4.5 4.5 0 0 0-5.9 5.7L3.4 15.4a2 2 0 0 0 2.8 2.8l6.2-6.2a4.5 4.5 0 0 0 5.7-5.9l-2.7 2.7-2.3-.6-.6-2.3 2.7-2.7Z"/></svg><i class="m-dot" id="mnTech"></i></span>Techs</button>
+    <button class="m-tab" data-tab="entity" onclick="mShow('entity')" aria-label="Legal entities">
+      <span class="m-tab-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21V6l7-3 7 3v15"/><path d="M4 21h16"/><path d="M9 9h1.5M13.5 9H15M9 13h1.5M13.5 13H15M9 17h6"/></svg><i class="m-dot" id="mnEntity"></i></span>Entities</button>
   </nav>
 
   <!-- Mobile: the tray is hidden by default; this button brings it back. -->
@@ -3038,7 +3113,7 @@
        shared admins/appMeta node; every client compares on each load, and a
        stale client force-reloads itself with a cache-busting ?v= URL. This is
        the same approach FixMi uses so the two apps stay consistent. */
-    const APP_VERSION = "10.5";
+    const APP_VERSION = "10.6";
     let _versionPublished = false;
 
     function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
@@ -3876,7 +3951,7 @@
           if (e) { updates[`restaurants/${id}/email`] = e; emailChanged++; }
         });
 
-        // Directors, area coaches, repair techs, entities: phone + email.
+        // Directors, district managers, repair techs, entities: phone + email.
         [["directors", directors], ["areaCoaches", areaCoaches], ["repairTechnicians", repairTechnicians], ["entities", entities]].forEach(([path, coll]) => {
           Object.keys(coll).forEach(id => {
             const f = fixPlain(coll[id].phone);
@@ -4459,7 +4534,7 @@
           card.innerHTML = `
             <div class="card-header-row">
               <div class="card-title flex items-center gap-1.5" style="align-items: center;">
-                <span style="color: var(--t-faint); font-family: monospace; font-size: 0.75rem; user-select: none;">⋮⋮</span>
+                <span class="drag-grip" style="color: var(--t-faint); font-family: monospace; font-size: 0.75rem; user-select: none;">⋮⋮</span>
                 ${escapeHtml(coach.name)} <span style="font-weight: normal; color: var(--t-info-fg); font-size: 0.72rem; margin-left: 4px;">(Active)</span>
               </div>
               <div class="card-actions">
@@ -4480,7 +4555,7 @@
           card.innerHTML = `
             <div class="card-header-row" style="margin-bottom: 0; align-items: center;">
               <div class="card-title flex items-center gap-1.5" style="align-items: center;">
-                <span style="color: #cbd5e1; font-family: monospace; font-size: 0.75rem; user-select: none;">⋮⋮</span>
+                <span class="drag-grip" style="color: #cbd5e1; font-family: monospace; font-size: 0.75rem; user-select: none;">⋮⋮</span>
                 ${escapeHtml(coach.name)}
               </div>
               <span style="font-size: 0.72rem; color: var(--t-muted); font-weight: 600;">Tap to open</span>
@@ -4576,7 +4651,7 @@
           header.className = "group-divider";
           header.style.fontSize = "0.7rem";
           header.style.fontWeight = "bold";
-          header.innerText = "Coach Reports";
+          header.innerText = "District Manager Reports";
           listDiv.appendChild(header);
           renderRestaurantListPlain(coachReportKeys, listDiv);
         }
@@ -4830,7 +4905,7 @@
           card.innerHTML = `
             <div class="card-header-row" style="display: flex; justify-content: space-between; align-items: center; width: 100%; overflow: hidden;">
               <div class="card-title flex items-center gap-1.5" style="align-items: center; overflow: hidden; display: flex; white-space: nowrap; max-width: calc(100% - 96px); flex: 1;">
-                <span style="color: var(--t-faint); font-family: monospace; font-size: 0.75rem; user-select: none; flex-shrink: 0;">⋮⋮</span>
+                <span class="drag-grip" style="color: var(--t-faint); font-family: monospace; font-size: 0.75rem; user-select: none; flex-shrink: 0;">⋮⋮</span>
                 <span class="store-badge" style="background-color: var(--t-info-fg); color: #ffffff; font-size: 0.7rem; padding: 2px 5px; border-radius: 4px; font-weight: bold; font-family: monospace; flex-shrink: 0;">${escapeHtml(rest.storeNumber || '#')}</span>
                 <span class="font-bold copy-field" onmousedown="event.stopPropagation();" onclick="event.stopPropagation(); copyField(this, this.getAttribute('data-copy'), 'Store name')" data-copy="${escapeHtml(rest.storeName || '')}" style="font-size: 0.88rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 1;">${escapeHtml(rest.storeName)}</span>
                 ${pgEmoji}
@@ -4915,7 +4990,7 @@
           card.innerHTML = `
             <div class="card-header-row" style="margin-bottom: 0; align-items: center; width: 100%; display: flex; justify-content: space-between; overflow: hidden;">
               <div class="card-title flex items-center gap-1.5" style="align-items: center; overflow: hidden; display: flex; white-space: nowrap; max-width: calc(100% - 50px); flex: 1;">
-                <span style="color: #cbd5e1; font-family: monospace; font-size: 0.75rem; user-select: none; flex-shrink: 0;">⋮⋮</span>
+                <span class="drag-grip" style="color: #cbd5e1; font-family: monospace; font-size: 0.75rem; user-select: none; flex-shrink: 0;">⋮⋮</span>
                 <span class="store-badge" style="font-family: monospace; font-size: 0.7rem; padding: 1px 4px; border-radius: 3px; font-weight: bold; flex-shrink: 0; overflow: hidden; white-space: nowrap;">${escapeHtml(rest.storeNumber || '#')}</span>
                 <span class="font-medium" style="font-size: 0.88rem; color: var(--t-ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 1;">${escapeHtml(getShortStoreName(rest.storeName, rest.storeNumber))}</span>
                 ${pgEmoji}
@@ -5261,7 +5336,7 @@
         const dirName = dir ? dir.name : "Selected Director";
         if (coachFilterBar) {
           coachFilterBar.style.display = "flex";
-          coachFilterText.innerHTML = `Showing coaches of <strong>${escapeHtml(dirName)}</strong>`;
+          coachFilterText.innerHTML = `Showing DMs of <strong>${escapeHtml(dirName)}</strong>`;
         }
         if (restaurantFilterBar) {
           restaurantFilterBar.style.display = "flex";
@@ -5273,10 +5348,10 @@
 
       if (selectedCoachId) {
         const coach = areaCoaches[selectedCoachId];
-        const coachName = coach ? coach.name : "Selected Coach";
+        const coachName = coach ? coach.name : "Selected District Manager";
         if (restaurantFilterBar) {
           restaurantFilterBar.style.display = "flex";
-          restaurantFilterText.innerHTML = `Showing stores of Coach <strong>${escapeHtml(coachName)}</strong>`;
+          restaurantFilterText.innerHTML = `Showing stores of DM <strong>${escapeHtml(coachName)}</strong>`;
         }
       } else if (selectedEntityId) {
         const ent = entities[selectedEntityId];
@@ -5383,6 +5458,11 @@
       restaurantSortMode = val;
       renderRestaurants();
     }
+    // Keep the phone Filters button's count in step with the filters.
+    (function hookFilterBadge() {
+      const orig = renderRestaurants;
+      renderRestaurants = function () { const r = orig.apply(this, arguments); try { mSyncFilterBadge(); } catch (e) {} return r; };
+    })();
 
     // 7. CRUD MODAL OPERATIONS
     function openCreateModal(type) {
@@ -5390,7 +5470,7 @@
         document.getElementById("crudForm").reset();
         document.getElementById("formType").value = type;
         document.getElementById("formId").value = "";
-        const titleText = type === "restaurant" ? "Add New Store" : type === "technician" ? "Add Repair Technician" : type === "entity" ? "Add Legal Entity" : type === "vp" ? "Add Support Staff" : `Add New ${capitalize(type)}`;
+        const titleText = type === "restaurant" ? "Add New Store" : type === "technician" ? "Add Repair Technician" : type === "entity" ? "Add Legal Entity" : type === "vp" ? "Add Support Staff" : type === "coach" ? "Add District Manager" : `Add New ${capitalize(type)}`;
         document.getElementById("modalTitle").innerText = titleText;
         
         setupFormFields(type);
@@ -5412,7 +5492,7 @@
         document.getElementById("crudForm").reset();
         document.getElementById("formType").value = type;
         document.getElementById("formId").value = id;
-        const titleText = type === "restaurant" ? "Edit Store" : type === "technician" ? "Edit Repair Technician" : type === "entity" ? "Edit Legal Entity" : type === "vp" ? "Edit Support Staff" : `Edit ${capitalize(type)}`;
+        const titleText = type === "restaurant" ? "Edit Store" : type === "technician" ? "Edit Repair Technician" : type === "entity" ? "Edit Legal Entity" : type === "vp" ? "Edit Support Staff" : type === "coach" ? "Edit District Manager" : `Edit ${capitalize(type)}`;
         document.getElementById("modalTitle").innerText = titleText;
         
         setupFormFields(type);
@@ -5968,7 +6048,7 @@
       if (dirSelect && res.directorId) dirSelect.value = res.directorId;
       if (res.conflict) {
         const names = res.directorIds.map(d => (directors[d] && directors[d].name) || d).join(" / ");
-        hint.innerHTML = `<span class="picker-warn">⚠ These coaches report to different directors (${escapeHtml(names)}).</span>`;
+        hint.innerHTML = `<span class="picker-warn">⚠ These district managers report to different directors (${escapeHtml(names)}).</span>`;
       } else if (res.directorId && directors[res.directorId]) {
         hint.innerHTML = `Director: <strong>${escapeHtml(directors[res.directorId].name)}</strong>`;
       } else hint.innerHTML = "";
@@ -7306,7 +7386,7 @@
       const coachChips = row.coachIds
         .map(cid => chip("coaches", cid, `batchRemoveCoach(${idx}, '${cid}')`)).join(" ");
 
-      let opts = `<option value="">+ coach…</option>`;
+      let opts = `<option value="">+ DM…</option>`;
       Object.values(areaCoaches || {}).forEach(c => {
         if (row.coachIds.indexOf(c.id) === -1) opts += `<option value="${c.id}">${escapeHtml(c.name)}</option>`;
       });
@@ -7895,6 +7975,23 @@
     };
     let mActiveTab = "store";
 
+    // Phone: the Sort/Filter block under the Stores header is tucked behind a
+    // button so the list starts higher. Desktop never hides it.
+    function mToggleStoreFilters(force) {
+      const sec = document.querySelector('.column[data-col="store"]');
+      if (!sec) return;
+      const open = typeof force === "boolean" ? force : !sec.classList.contains("m-filters-open");
+      sec.classList.toggle("m-filters-open", open);
+      const b = document.getElementById("mFilterBtn");
+      if (b) b.setAttribute("aria-expanded", open ? "true" : "false");
+    }
+    function mSyncFilterBadge() {
+      const b = document.getElementById("mFilterBtn");
+      if (!b) return;
+      const n = (storeFilterCoachId ? 1 : 0) + (storeFilterEntityId ? 1 : 0) + (storeFilterDivision ? 1 : 0) + (restaurantSortMode && restaurantSortMode !== "name_asc" ? 1 : 0);
+      b.textContent = n ? `⚙ Filters (${n})` : "⚙ Filters";
+      b.classList.toggle("has-filters", n > 0);
+    }
     function mShow(tab) {
       const cfg = M_TABS[tab];
       if (!cfg) return;
@@ -8438,7 +8535,7 @@
           
           logs.push({
             id: id,
-            text: `Restaurant [${rest.storeNumber || '#'}] "${getShortStoreName(rest.storeName, rest.storeNumber)}": Reassigned to Coach "${currentCoachName}" & Director "${currentDirName}" (Was: Coach "${initialCoachName}", Director "${initialDirName}")`
+            text: `Restaurant [${rest.storeNumber || '#'}] "${getShortStoreName(rest.storeName, rest.storeNumber)}": Reassigned to District Manager "${currentCoachName}" & Director "${currentDirName}" (Was: District Manager "${initialCoachName}", Director "${initialDirName}")`
           });
         }
       });
