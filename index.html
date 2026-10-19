@@ -1452,6 +1452,13 @@
     .form-group .pg-check input[type="checkbox"] { width: 16px; height: 16px; min-width: 16px; margin: 0; padding: 0; flex: 0 0 16px; accent-color: #10b981; cursor: pointer; box-shadow: none; }
     .form-group .pg-check span { line-height: 1.2; }
     /* Store hours: 24h toggle disables the free-text field. */
+    .mgr-editor { display: flex; flex-direction: column; gap: 4px; }
+    .mgr-row { display: grid; grid-template-columns: 96px 1fr 118px 26px; gap: 5px; align-items: center; }
+    .form-group .mgr-row select, .form-group .mgr-row input { width: 100%; box-sizing: border-box; padding: 4px 6px; font-size: 0.76rem; }
+    .mgr-row .mgr-x { background: none; border: none; color: var(--t-faint); cursor: pointer; font-weight: 700; font-size: 0.95rem; line-height: 1; padding: 0; }
+    .mgr-row .mgr-x:hover { color: var(--t-bad-fg); }
+    .mgr-editor-empty { font-size: 0.74rem; color: var(--t-muted); padding: 4px 2px; }
+    @media (max-width: 768px) { .mgr-row { grid-template-columns: 84px 1fr 26px; } .mgr-row input[type="tel"] { grid-column: 1 / 3; } }
     .hours-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
     .hours-paste { width: 100%; box-sizing: border-box; font-family: monospace; font-size: 0.72rem; padding: 6px 8px; border: 1px solid var(--t-line-2); border-radius: 4px; resize: vertical; background: var(--bg-white); color: var(--t-ink); }
     .hours-tools { display: flex; align-items: center; gap: 8px; margin: 4px 0 6px; font-size: 0.7rem; color: var(--t-muted); }
@@ -2329,7 +2336,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v10.6 Vercel API</span>
+      <span>v10.8 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -2730,25 +2737,19 @@
             <label class="pg-check" for="inputHasStarlink"><input type="checkbox" id="inputHasStarlink"><span>🛰️ Starlink site</span></label>
           </div>
 
-          <div class="form-group" id="groupStoreManager" style="display: none;">
-            <label for="inputStoreManager">Store Manager</label>
-            <input type="text" id="inputStoreManager" placeholder="e.g. Robin Douglas">
+          <div class="form-group" id="groupManagers" style="display: none;">
+            <div class="hours-head">
+              <label style="margin: 0;">Managers <span class="field-opt">GM, AGM, In Training</span></label>
+              <button type="button" class="btn btn-xs" onclick="mgrEditorAdd()">+ Add manager</button>
+            </div>
+            <div id="mgrEditor" class="mgr-editor"></div>
+            <div class="picker-hint" style="margin-top: 4px;">This is the list shown on the card and used by FixMi. Phones are shown only to people with edit access.</div>
           </div>
 
-          <div class="form-group" id="groupManagerCell" style="display: none;">
-            <label for="inputManagerCell">Store Manager Cell <span class="field-private">edit only &mdash; not shown on the card</span></label>
-            <input type="tel" id="inputManagerCell" placeholder="e.g. 254-555-0134" autocomplete="off">
-          </div>
-
-          <div class="form-group" id="groupAgm" style="display: none;">
-            <label for="inputAgm">Assistant GM <span class="field-opt">optional</span></label>
-            <input type="text" id="inputAgm" placeholder="e.g. Casey Alvarez">
-          </div>
-
-          <div class="form-group" id="groupAgmCell" style="display: none;">
-            <label for="inputAgmCell">Assistant GM Cell <span class="field-private">edit only &mdash; not shown on the card</span></label>
-            <input type="tel" id="inputAgmCell" placeholder="e.g. 254-555-0198" autocomplete="off">
-          </div>
+          <!-- Legacy single GM/AGM fields are kept in the record untouched (read-only
+               fallback for other apps); they are no longer edited here. -->
+          <input type="hidden" id="inputStoreManager"><input type="hidden" id="inputManagerCell">
+          <input type="hidden" id="inputAgm"><input type="hidden" id="inputAgmCell">
 
           <div class="form-group" id="groupAddress" style="display: none;">
             <label for="inputAddress">Address</label>
@@ -3113,7 +3114,7 @@
        shared admins/appMeta node; every client compares on each load, and a
        stale client force-reloads itself with a cache-busting ?v= URL. This is
        the same approach FixMi uses so the two apps stay consistent. */
-    const APP_VERSION = "10.6";
+    const APP_VERSION = "10.8";
     let _versionPublished = false;
 
     function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
@@ -4680,8 +4681,10 @@
           if (!r) return false;
           return globalMatch(r.storeName, r.storeNumber, r.address, r.phone, r.email,
             storeSearchFlags(r),
-            r.storeManager, r.assistantManager,
-            (Array.isArray(r.managers) ? r.managers.map(m => (m.name||"")+" "+(m.title||"")+" "+(m.phone||"")).join(" ") : ""),
+            // Only the managers the card actually shows (list first, legacy only
+            // when there is no list) - indexing stale legacy names made stores
+            // match for people who no longer appear on them.
+            storeManagersOf(r).map(m => (m.name||"")+" "+(m.title||"")+" "+(m.phone||"")).join(" "),
             getCoachNames(r).join(" "), getTechNames(r).join(" "),
             (r.assignedDirectorId && directors[r.assignedDirectorId]) ? directors[r.assignedDirectorId].name : "",
             (r.assignedEntityId && entities[r.assignedEntityId]) ? entities[r.assignedEntityId].name : (r.entity || ""));
@@ -4697,7 +4700,7 @@
           const storeName = (rest.storeName || "").toLowerCase();
           const storeNumber = (rest.storeNumber || "").toLowerCase();
           // Names are searchable; cell numbers deliberately are not.
-          const manager = ((rest.storeManager || "") + " " + (rest.assistantManager || "")).toLowerCase();
+          const manager = storeManagersOf(rest).map(m => m.name || "").join(" ").toLowerCase();
           const address = (rest.address || "").toLowerCase();
           const entity = (rest.entity || "").toLowerCase();
           const lat = (rest.latitude || "").toLowerCase();
@@ -4822,6 +4825,40 @@
        below to change what counts as "incomplete". */
     // One view of a store's managers for the flags: the imported list, or the
     // legacy GM/AGM fields for stores not yet imported.
+    // ---- Managers editor (store edit form) ----
+    const MGR_TITLES = ["GM", "AGM", "In Training", "Other"];
+    function mgrEditorRender(list) {
+      const host = document.getElementById("mgrEditor"); if (!host) return;
+      const rows = Array.isArray(list) ? list : [];
+      if (!rows.length) { host.innerHTML = `<div class="mgr-editor-empty">No managers listed. Use “+ Add manager”, or the Batch Import → Update Manager Contacts sheet.</div>`; return; }
+      host.innerHTML = rows.map((m, i) => `
+        <div class="mgr-row" data-i="${i}">
+          <select class="mgr-title" aria-label="Title">${MGR_TITLES.map(t => `<option value="${t}"${(m.title || "Other") === t ? " selected" : ""}>${t}</option>`).join("")}</select>
+          <input type="text" class="mgr-name" placeholder="Name" value="${escapeHtml(m.name || "")}" autocomplete="off">
+          <input type="tel" class="mgr-phone" placeholder="Cell" value="${escapeHtml(formatPhoneNumber(m.phone) || m.phone || "")}" autocomplete="off">
+          <button type="button" class="mgr-x" title="Remove" onclick="mgrEditorRemove(${i})">✕</button>
+        </div>`).join("");
+    }
+    function mgrEditorRead() {
+      return Array.from(document.querySelectorAll("#mgrEditor .mgr-row")).map(r => ({
+        title: r.querySelector(".mgr-title").value || "Other",
+        name: r.querySelector(".mgr-name").value.trim(),
+        phone: formatPhoneNumber(r.querySelector(".mgr-phone").value) || r.querySelector(".mgr-phone").value.trim()
+      })).filter(m => m.name || m.phone);
+    }
+    function mgrEditorAdd() { const cur = mgrEditorRead(); cur.push({ title: cur.length ? "AGM" : "GM", name: "", phone: "" }); mgrEditorRender(cur); const last = document.querySelector("#mgrEditor .mgr-row:last-child .mgr-name"); if (last) last.focus(); }
+    function mgrEditorRemove(i) { const cur = mgrEditorRead(); cur.splice(i, 1); mgrEditorRender(cur); }
+    // The GM shown everywhere a single name is needed (export, map popup, Copy All).
+    function storeGMName(r) {
+      const list = storeManagersOf(r);
+      const gm = list.find(m => /^gm$/i.test(m.title || "")) || list[0];
+      return gm ? (gm.name || "") : "";
+    }
+    function storeAGMName(r) {
+      const agm = storeManagersOf(r).find(m => /^agm$/i.test(m.title || ""));
+      return agm ? (agm.name || "") : "";
+    }
+
     function storeManagersOf(r) {
       if (Array.isArray(r.managers) && r.managers.length) return r.managers;
       const out = [];
@@ -4942,11 +4979,7 @@
 
                 // ONE manager list: imported `managers`, legacy Mgr/AGM as fallback.
                 // GM > AGM > In Training > Other; name and phone on separate lines.
-                let mgrs = (Array.isArray(rest.managers) && rest.managers.length) ? rest.managers.slice() : [];
-                if (!mgrs.length) {
-                  if (rest.storeManager) mgrs.push({ name: rest.storeManager, title: "GM", phone: rest.managerCell });
-                  if (rest.assistantManager) mgrs.push({ name: rest.assistantManager, title: "AGM", phone: rest.assistantManagerCell });
-                }
+                let mgrs = storeManagersOf(rest).slice();
                 const rank = { "GM": 0, "AGM": 1, "In Training": 2 };
                 mgrs.sort((a, b) => ((rank[a.title] ?? 3) - (rank[b.title] ?? 3)) || (a.name || "").localeCompare(b.name || ""));
                 mgrs.forEach(m => {
@@ -5474,6 +5507,7 @@
         document.getElementById("modalTitle").innerText = titleText;
         
         setupFormFields(type);
+        mgrEditorRender([]);
         __hoursShowAll = false; window.__hoursStash = null;
         hoursGridFill(null);
         const hp0 = document.getElementById("hoursPaste"); if (hp0) hp0.value = "";
@@ -5539,10 +5573,7 @@
           document.getElementById("inputStoreName").value = item.storeName || "";
           document.getElementById("inputHasPlayground").checked = !!item.hasPlayground;
           document.getElementById("inputHasStarlink").checked = !!item.hasStarlink;
-          document.getElementById("inputStoreManager").value = item.storeManager || "";
-          document.getElementById("inputManagerCell").value = formatPhoneNumber(item.managerCell) || "";
-          document.getElementById("inputAgm").value = item.assistantManager || "";
-          document.getElementById("inputAgmCell").value = formatPhoneNumber(item.assistantManagerCell) || "";
+          mgrEditorRender(storeManagersOf(item));
           document.getElementById("inputAddress").value = item.address || "";
           __hoursShowAll = false; window.__hoursStash = item.hoursDetail || null;
           hoursGridFill(item.hoursDetail);
@@ -5583,8 +5614,8 @@
 
     // Groups shown only for stores. Cell numbers live here and nowhere else -
     // they are deliberately never rendered on the card.
-    const STORE_ONLY_GROUPS = ["groupStoreNo", "groupStoreName", "groupPlayground", "groupStoreManager",
-      "groupManagerCell", "groupAgm", "groupAgmCell", "groupAddress", "groupHours", "groupEntity",
+    const STORE_ONLY_GROUPS = ["groupStoreNo", "groupStoreName", "groupPlayground", "groupManagers",
+      "groupAddress", "groupHours", "groupEntity",
       "groupLatitude", "groupLongitude", "groupAssignedCoach", "groupAssignedTech"];
 
     /* Render the technician specialty checkboxes + colour swatches. */
@@ -6153,7 +6184,11 @@
           }
         }
         
-        updates[`restaurants/${id}`] = {
+        // Start from the stored record: a path write REPLACES the node, so any
+        // field the form does not know about (managers list, fields other apps
+        // added) would otherwise be deleted by a simple address fix.
+        const existingStore = restaurants[id] || {};
+        updates[`restaurants/${id}`] = Object.assign({}, existingStore, {
           division: (document.getElementById("inputDivision") && document.getElementById("inputDivision").value)
                     || guessDivision({ storeName: document.getElementById("inputStoreName").value }),
           id: id,
@@ -6161,10 +6196,9 @@
           storeName: document.getElementById("inputStoreName").value,
           hasPlayground: !!document.getElementById("inputHasPlayground").checked,
           hasStarlink: !!document.getElementById("inputHasStarlink").checked,
-          storeManager: document.getElementById("inputStoreManager").value,
-          managerCell: formatPhoneNumber(document.getElementById("inputManagerCell").value),
-          assistantManager: document.getElementById("inputAgm").value.trim(),
-          assistantManagerCell: formatPhoneNumber(document.getElementById("inputAgmCell").value),
+          // `managers` is the source of truth; the legacy storeManager/AGM
+          // scalars ride through from existingStore untouched (read-only fallback).
+          managers: mgrEditorRead(),
           address: document.getElementById("inputAddress").value,
           hoursDetail: document.getElementById("inputOpen24").checked ? null : hoursGridRead(),
           open24: !!document.getElementById("inputOpen24").checked,
@@ -6179,7 +6213,7 @@
           assignedDirectorId: document.getElementById("selectAssignedDirector").value,
           assignedRepairTechnicianIds: selectedTechIds,
           assignedRepairTechnicianId: selectedTechIds[0] || ""
-        };
+        });
       }
 
       // Close the modal right away. The optimistic local write + renderAll (in
@@ -6381,6 +6415,7 @@
 
     // ---- Batch modal mode switch ----
     let _mgrImportRows = null;  // parsed+matched rows awaiting Apply
+    let _mgrSkippedOffice = 0;  // non-store rows (office roles) left out of the preview
     let _mgrRemoveStale = false; // opt-in: drop existing contacts absent from the sheet
     function setBatchMode(mode) {
       document.querySelectorAll(".bimode-tab").forEach(t => {
@@ -6534,6 +6569,7 @@
     function parseAndPreviewManagers(rows) {
       const idx = buildStoreMatchIndex();
       const matched = [], unmatched = [];
+      let skipped = 0;
       rows.forEach(row => {
         // tolerant column lookup
         const get = (names) => { for (const n of names) { for (const k of Object.keys(row)) { if (k.toLowerCase().replace(/[^a-z]/g,"") === n) return row[k]; } } return ""; };
@@ -6557,9 +6593,14 @@
           rawTitle: pos,
           phone: cleanImportPhone(phone)
         };
+        // Office rows (DPM Office: DMs, directors, accounting...) are not store
+        // managers. Anything that is not a GM/AGM/trainee AND has no store match
+        // is set aside so it doesn't clutter the preview as "unmatched".
+        if (entry.title === "Office" || (!entry.storeId && entry.title === "Other")) { skipped++; return; }
         if (entry.storeId) matched.push(entry); else unmatched.push(entry);
       });
       _mgrImportRows = matched.concat(unmatched);
+      _mgrSkippedOffice = skipped;
       renderMgrPreview();
     }
 
@@ -6731,7 +6772,8 @@
       const bar = document.getElementById("mgrApplyBar");
       document.getElementById("mgrApplySummary").innerText =
         `Will write: ${nNew} new, ${nUpd} updated. ${nCur} already current (untouched).` +
-        (unmatched.length ? ` ${unmatched.length} still need a store.` : "");
+        (unmatched.length ? ` ${unmatched.length} still need a store.` : "") +
+        (_mgrSkippedOffice ? ` ${_mgrSkippedOffice} office/non-store rows set aside.` : "");
       bar.style.display = (nNew + nUpd > 0 || _mgrRemoveStale) ? "flex" : "none";
     }
 
@@ -8032,8 +8074,8 @@
       { key: "address",     label: "Address",        get: r => r.address || "" },
       { key: "phone",       label: "Phone Number",   get: r => r.phone || "" },
       { key: "email",       label: "Store Email",    get: r => r.email || "" },
-      { key: "manager",     label: "Store Manager",  get: r => r.storeManager || "" },
-      { key: "agm",         label: "Assistant GM",   get: r => r.assistantManager || "" },
+      { key: "manager",     label: "Store Manager",  get: r => storeGMName(r) },
+      { key: "agm",         label: "Assistant GM",   get: r => storeAGMName(r) },
       { key: "coach",       label: "District Manager", get: r => getCoachNames(r).join(", ") },
       { key: "director",    label: "Director",       get: r => (r.assignedDirectorId && directors[r.assignedDirectorId]) ? directors[r.assignedDirectorId].name : "" },
       { key: "tech",        label: "Repair Tech",    get: r => getTechNames(r).join(", ") },
@@ -8249,10 +8291,8 @@
       if (r.storeName) lines.push(r.storeName);
       if (r.storeNumber) lines.push("Store #: " + r.storeNumber);
       if (r.entity) lines.push("Entity: " + r.entity);
-      if (r.storeManager) lines.push("Manager: " + r.storeManager);
-      if (r.assistantManager) lines.push("AGM: " + r.assistantManager);
-      if (Array.isArray(r.managers)) {
-        r.managers.forEach(m => {
+      {
+        storeManagersOf(r).forEach(m => {
           if (m.name || m.phone) lines.push(`${m.title || "Manager"}: ${m.name || ""}${m.phone ? " — " + m.phone : ""}`.trim());
         });
       }
@@ -8437,6 +8477,10 @@
     // Sheet position -> simplified title.
     function simplifyManagerTitle(pos) {
       const p = (pos || "").toLowerCase();
+      // Office / above-store roles are not store managers, even when the word
+      // "assistant" or "manager" appears (Assistant District Manager, Executive
+      // Assistant, Accounting Manager...).
+      if (/district|director|coordinator|executive|accountant|accounting|analyst|payable|\bceo\b|\bcoo\b|president|human resources|marketing|project|development|services|repair|hvac|technician/.test(p)) return "Office";
       if (p.indexOf("training") !== -1) return "In Training";
       if (p.indexOf("assistant") !== -1) return "AGM";
       if (p.indexOf("general manager") !== -1 || p === "gm" || p.indexOf("store manager") !== -1) return "GM";
@@ -9103,7 +9147,7 @@
               <span style="font-weight:700;font-size:13px;">${escapeHtml(r.storeName || "Store")}</span>
               ${!inFilter ? `<span style="font-size:10px;color:var(--t-warn-fg);background:var(--t-warn-bg);padding:1px 6px;border-radius:999px;">outside current filter</span>` : ""}
             </div>
-            ${row("Mgr", r.storeManager)}
+            ${row("GM", storeGMName(r))}
             ${row("Entity", entName)}
             ${row("Director", dirName)}
             ${row("DM", coachName)}
