@@ -7,7 +7,7 @@
        That auto-linking added its own underline that wrapped mid-value and
        looked broken. The Call/Email/Go buttons are the intended actions. -->
   <meta name="format-detection" content="telephone=no, address=no, email=no">
-  <meta name="color-scheme" content="light dark">
+  <meta name="color-scheme" content="light">
   <meta name="theme-color" content="#1b1660" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#120f3a" media="(prefers-color-scheme: dark)">
   <script>
@@ -490,8 +490,9 @@
       --t-ink:       #14161f;   /* primary text */
       --t-ink-2:     #334155;   /* strong secondary text */
       --t-muted:     #64748b;   /* labels, secondary */
-      --t-faint:     #94a3b8;   /* hints, placeholders */
+      --t-faint:     #6b7a90;   /* hints, placeholders (4.9:1 on white; was #94a3b8 at 2.6:1) */
       --t-brand:     #251d7f;   /* brand navy used AS TEXT / accents */
+      color-scheme: light;      /* form controls follow the app theme, never the OS */
       --t-brand-fill:#251d7f;   /* brand navy used as a FILL (white text on it) */
       --t-hover:     #eef2ff;   /* click-to-copy hover */
       --t-ok-bg: #dcfce7;  --t-ok-fg: #166534;
@@ -966,7 +967,7 @@
     .cf-row .cf-icon, .cf-row .cf-label { padding-top: 1px; }
     .cf-row .cf-remove {
       margin-left: auto; flex-shrink: 0; background: none; border: none; cursor: pointer;
-      color: var(--t-faint); font-weight: 700; padding: 0 4px; line-height: 1;
+      color: var(--t-muted); font-weight: 700; padding: 0 4px; line-height: 1;
     }
     .cf-row .cf-remove:hover { color: var(--t-bad-fg); }
     @media (max-width: 768px) {
@@ -1094,7 +1095,9 @@
     html[data-theme="dark"] .col-resizer::before { background: var(--t-line-2); }
     html[data-theme="dark"] .cf-section { border-left-color: var(--t-line); }
     html[data-theme="dark"] .open-map-badge { background: var(--t-info-bg); color: var(--t-info-fg); border-color: var(--t-info-line); }
-    html[data-theme="dark"] .staff-ext-badge, html[data-theme="dark"] .store-badge { background: var(--t-brand-fill); color: #fff; }
+    html[data-theme="dark"] .staff-ext-badge, html[data-theme="dark"] .store-badge,
+    html[data-theme="dark"] .column-counter, html[data-theme="dark"] .history-counter-badge { background-color: var(--t-brand-fill) !important; color: #fff; }
+    html[data-theme="dark"] .picker-add { color: #93c5fd; }
     html[data-theme="dark"] ::-webkit-scrollbar { background: var(--t-surface); }
     html[data-theme="dark"] ::-webkit-scrollbar-thumb { background: var(--t-line-2); border-radius: 6px; }
     html[data-theme="dark"] .leaflet-popup-content-wrapper, html[data-theme="dark"] .leaflet-popup-tip { background: var(--t-surface); color: var(--t-ink); }
@@ -1345,7 +1348,7 @@
       flex: 1 1 auto; max-width: 520px; margin: 0 16px;
     }
     .global-search-icon {
-      position: absolute; left: 12px; font-size: 0.85rem; pointer-events: none; opacity: .8;
+      position: absolute; left: 12px; font-size: 0.85rem; pointer-events: none; opacity: .8; color: var(--t-muted);
     }
     .global-search-input {
       width: 100%; box-sizing: border-box;
@@ -1512,21 +1515,18 @@
     .picker { display: flex; flex-direction: column; gap: 4px; }
     .picker-row { display: flex; align-items: center; gap: 5px; }
     .picker-row select { flex: 1; }
-    .picker-x { background: none; border: none; color: var(--t-faint); cursor: pointer;
+    .picker-x { background: none; border: none; color: var(--t-muted); cursor: pointer;
                 font-weight: 700; font-size: .85rem; padding: 0 4px; }
     .picker-x:hover { color: var(--t-bad-fg); }
     .picker-add { align-self: flex-start; background: none; border: none; cursor: pointer;
-                  color: var(--primary-color, #251d7f); font-size: .72rem; font-weight: 600; padding: 2px 0; }
+                  color: var(--t-info-fg); font-size: .76rem; font-weight: 700; padding: 4px 0; text-decoration: underline; text-underline-offset: 2px; }
+    .picker-add:hover { color: var(--t-brand); }
     .picker-hint { font-size: .68rem; color: var(--t-muted); margin-top: 4px; }
     .picker-warn { color: var(--t-warn-fg); font-weight: 600; }
 
-    /* --- history tray + its FAB: desktop-only. Nobody triages org-change
-       history from a phone, and on mobile it stole bottom space and cluttered
-       the view. Force off (overrides the later same-specificity desktop rule). */
+    /* History tray: inline strip on desktop; on phones it becomes a bottom
+       sheet opened from a 📋 button (see the phone block at the end). */
     #historyTrayFab { display: none; }
-    @media (max-width: 768px) {
-      .history-tray, #historyTrayFab, #historyFabCount { display: none !important; }
-    }
 
     /* --- batch import preview --- */
     .bchips { display:inline-flex; align-items:center; gap:3px; flex-wrap:wrap; justify-content:flex-end; }
@@ -1735,6 +1735,16 @@
       margin-bottom: 3px;
     }
 
+    /* Every text control states its own colors. Without this, a phone in OS dark
+       mode drew light text into our white boxes in light mode - the "can't see
+       what I type unless I select it" bug. */
+    input, select, textarea {
+      color: var(--t-ink); background-color: var(--t-surface); caret-color: var(--t-ink);
+      -webkit-text-fill-color: var(--t-ink);
+    }
+    input::placeholder, textarea::placeholder { color: var(--t-faint); -webkit-text-fill-color: var(--t-faint); opacity: 1; }
+    select option { color: var(--t-ink); background: var(--t-surface); }
+    input:disabled, select:disabled, textarea:disabled { color: var(--t-muted); -webkit-text-fill-color: var(--t-muted); }
     .form-group input, .form-group select {
       width: 100%;
       padding: 4px 8px;
@@ -2030,8 +2040,8 @@
     }
 
     /* Tab bar + Filters button are mobile-only (desktop hides them; the phone block shows them). */
-    @media (min-width: 769px) { .m-tabs, .m-filter-btn { display: none !important; } }
-    .m-filter-btn { display: none; }
+    @media (min-width: 769px) { .m-tabs, .m-filter-btn, .m-only-btn { display: none !important; } }
+    .m-filter-btn, .m-only-btn { display: none; }
 
 
     /* Universal Landscape Mobile / Compact devices height checks (< 550px) */
@@ -2070,7 +2080,6 @@
         padding: 6px 0 12px !important;
         max-width: 640px; margin: 0 auto; width: 100%;
       }
-      .history-tray, #historyTrayFab { display: none !important; }
     }
 
     /* ===== Kiosk Map View ===== */
@@ -2298,6 +2307,23 @@
       .column[data-col="store"] .column-action-bar { display: none !important; }
       .column[data-col="store"].m-filters-open .column-action-bar { display: flex !important; }
 
+      /* Header: unlock + history buttons (desktop has the switch and the strip). */
+      .m-only-btn { display: inline-flex !important; position: relative; font-size: 1rem; }
+      .m-only-btn.is-unlocked { background: rgba(22,163,74,.35); border-color: rgba(134,239,172,.8); }
+      .m-hist-count { position: absolute; top: -4px; right: -4px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: #f59e0b; color: #1f1300; font-size: .62rem; font-weight: 800; display: none; align-items: center; justify-content: center; line-height: 1; }
+      .lock-toggle-container { display: none !important; }
+      /* History tray becomes a bottom sheet above the tab bar. */
+      .history-tray { display: none !important; }
+      .history-tray.mobile-open {
+        display: flex !important; position: fixed; left: 0; right: 0; z-index: 1200;
+        bottom: calc(58px + env(safe-area-inset-bottom, 0px)); height: 60vh; max-height: 70vh;
+        border-top-left-radius: 14px; border-top-right-radius: 14px; box-shadow: 0 -8px 30px rgba(15,23,42,.25);
+      }
+      .history-tray.mobile-open .history-tray-header { height: 44px; min-height: 44px; }
+      .history-tray.mobile-open .history-tray-body { padding: 12px 14px; }
+      .history-tray.mobile-open .tray-toggle-arrow { display: none; }
+      #historyTrayFab { display: none !important; }
+
       /* Bottom tab bar: always present on phones. */
       .m-tabs { display: flex !important; }
       .m-tab { font-size: .62rem; padding: 6px 2px 4px; }
@@ -2336,7 +2362,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v10.8 Vercel API</span>
+      <span>v11.1 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -2356,6 +2382,8 @@
         <option value="personnel">Standard + Personnel</option>
         <option value="all">All</option>
       </select>
+      <button type="button" class="theme-toggle m-only-btn" id="mLockBtn" onclick="mToggleLock()" aria-label="Unlock editing" title="Unlock editing">🔒</button>
+      <button type="button" class="theme-toggle m-only-btn" id="mHistoryBtn" onclick="toggleHistoryTrayMobile()" aria-label="Change history" title="Change history">📋<span class="m-hist-count" id="mHistoryCount"></span></button>
       <button type="button" class="theme-toggle" id="themeToggle" onclick="toggleTheme()" aria-label="Toggle dark mode" title="Toggle dark mode">🌙</button>
       <!-- Database Connection Status Badge -->
       <div id="connectionStatus" class="status-badge">
@@ -2365,17 +2393,17 @@
 
       <!-- Directory / Map View Toggle -->
       <div class="view-toggle-container" style="display: flex; align-items: center; gap: 6px; user-select: none; margin-right: 12px;">
-        <span style="font-size: 0.72rem; font-weight: 600; color: var(--t-muted);">🗂️ Directory</span>
+        <span style="font-size: 0.72rem; font-weight: 600; color: rgba(255,255,255,.88);">🗂️ Directory</span>
         <label class="switch">
           <input type="checkbox" id="viewToggle" onchange="__onViewToggle(this)">
           <span class="slider round"></span>
         </label>
-        <span style="font-size: 0.72rem; font-weight: 600; color: var(--t-muted);">🗺️ Map</span>
+        <span style="font-size: 0.72rem; font-weight: 600; color: rgba(255,255,255,.88);">🗺️ Map</span>
       </div>
 
       <!-- Global Lock Toggle -->
       <div class="lock-toggle-container" style="display: flex; align-items: center; gap: 6px; user-select: none;">
-        <span style="font-size: 0.72rem; font-weight: 600; color: var(--t-muted); display: flex; align-items: center; gap: 3px;">
+        <span style="font-size: 0.72rem; font-weight: 600; color: rgba(255,255,255,.88); display: flex; align-items: center; gap: 3px;">
           🔑 Unlock Editing
         </span>
         <label class="switch">
@@ -3114,7 +3142,7 @@
        shared admins/appMeta node; every client compares on each load, and a
        stale client force-reloads itself with a cache-busting ?v= URL. This is
        the same approach FixMi uses so the two apps stay consistent. */
-    const APP_VERSION = "10.8";
+    const APP_VERSION = "11.1";
     let _versionPublished = false;
 
     function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
@@ -3461,6 +3489,10 @@
       }
     }
 
+    // Phone header: one button does what the desktop switch does.
+    function mToggleLock() {
+      if (isEditingLocked) openLockConfirmModal(); else setLockState(true);
+    }
     function handleLockToggleClick(checkbox) {
       if (checkbox.checked) {
         // User checked the toggle trying to UNLOCK
@@ -3506,6 +3538,8 @@
       // Single source of truth for edit-UI visibility: +Add / Batch Import
       // buttons, per-card pencil/✕, and the Head badge are all CSS-gated on this.
       document.body.classList.toggle("editing-unlocked", !isLocked);
+      const mBtn = document.getElementById("mLockBtn");
+      if (mBtn) { mBtn.textContent = isLocked ? "🔒" : "🔓"; mBtn.classList.toggle("is-unlocked", !isLocked); mBtn.title = isLocked ? "Unlock editing" : "Lock editing"; }
       const toggle = document.getElementById("lockToggle");
       const statusText = document.getElementById("lockStatusText");
       if (toggle) {
@@ -4556,7 +4590,7 @@
           card.innerHTML = `
             <div class="card-header-row" style="margin-bottom: 0; align-items: center;">
               <div class="card-title flex items-center gap-1.5" style="align-items: center;">
-                <span class="drag-grip" style="color: #cbd5e1; font-family: monospace; font-size: 0.75rem; user-select: none;">⋮⋮</span>
+                <span class="drag-grip" style="color: var(--t-faint); font-family: monospace; font-size: 0.75rem; user-select: none;">⋮⋮</span>
                 ${escapeHtml(coach.name)}
               </div>
               <span style="font-size: 0.72rem; color: var(--t-muted); font-weight: 600;">Tap to open</span>
@@ -4943,7 +4977,7 @@
             <div class="card-header-row" style="display: flex; justify-content: space-between; align-items: center; width: 100%; overflow: hidden;">
               <div class="card-title flex items-center gap-1.5" style="align-items: center; overflow: hidden; display: flex; white-space: nowrap; max-width: calc(100% - 96px); flex: 1;">
                 <span class="drag-grip" style="color: var(--t-faint); font-family: monospace; font-size: 0.75rem; user-select: none; flex-shrink: 0;">⋮⋮</span>
-                <span class="store-badge" style="background-color: var(--t-info-fg); color: #ffffff; font-size: 0.7rem; padding: 2px 5px; border-radius: 4px; font-weight: bold; font-family: monospace; flex-shrink: 0;">${escapeHtml(rest.storeNumber || '#')}</span>
+                <span class="store-badge" style="font-size: 0.7rem; padding: 2px 5px; border-radius: 4px; font-weight: bold; font-family: monospace; flex-shrink: 0;">${escapeHtml(rest.storeNumber || '#')}</span>
                 <span class="font-bold copy-field" onmousedown="event.stopPropagation();" onclick="event.stopPropagation(); copyField(this, this.getAttribute('data-copy'), 'Store name')" data-copy="${escapeHtml(rest.storeName || '')}" style="font-size: 0.88rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 1;">${escapeHtml(rest.storeName)}</span>
                 ${pgEmoji}
                 ${missingPill}
@@ -5023,7 +5057,7 @@
           card.innerHTML = `
             <div class="card-header-row" style="margin-bottom: 0; align-items: center; width: 100%; display: flex; justify-content: space-between; overflow: hidden;">
               <div class="card-title flex items-center gap-1.5" style="align-items: center; overflow: hidden; display: flex; white-space: nowrap; max-width: calc(100% - 50px); flex: 1;">
-                <span class="drag-grip" style="color: #cbd5e1; font-family: monospace; font-size: 0.75rem; user-select: none; flex-shrink: 0;">⋮⋮</span>
+                <span class="drag-grip" style="color: var(--t-faint); font-family: monospace; font-size: 0.75rem; user-select: none; flex-shrink: 0;">⋮⋮</span>
                 <span class="store-badge" style="font-family: monospace; font-size: 0.7rem; padding: 1px 4px; border-radius: 3px; font-weight: bold; flex-shrink: 0; overflow: hidden; white-space: nowrap;">${escapeHtml(rest.storeNumber || '#')}</span>
                 <span class="font-medium" style="font-size: 0.88rem; color: var(--t-ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 1;">${escapeHtml(getShortStoreName(rest.storeName, rest.storeNumber))}</span>
                 ${pgEmoji}
@@ -6021,7 +6055,10 @@
       const box = document.getElementById(cfg.box);
       if (!box) return;
       const all = cfg.src();
-      const ids = (selectedIds || []).filter(id => all[id]);
+      // Keep "" placeholders: that is the empty dropdown "+ Add another" creates.
+      // (Filtering them out here is why a second District Manager could never
+      // be added - the new blank row vanished before it was drawn.)
+      const ids = (selectedIds || []).filter(id => id === "" || all[id]);
       if (ids.length === 0) ids.push("");   // always show one dropdown
 
       const options = (cur) => `<option value="">-- none --</option>` +
@@ -6049,15 +6086,26 @@
       return ids.filter((id, i) => ids.indexOf(id) === i);
     }
 
+    // Raw dropdown values in order, blanks included (readPicker drops blanks).
+    function pickerValues(kind) {
+      const box = document.getElementById(PICKERS[kind].box);
+      return box ? Array.from(box.querySelectorAll("select")).map(s => s.value) : [];
+    }
     function pickerSet(kind, idx, val) {
-      const ids = readPicker(kind);
-      renderPicker(kind, ids);
+      const vals = pickerValues(kind);
+      // Re-render so the other dropdowns stop offering the one just picked,
+      // but keep any still-empty rows the user has open.
+      const seen = new Set();
+      renderPicker(kind, vals.filter(v => { if (!v) return true; if (seen.has(v)) return false; seen.add(v); return true; }));
     }
 
     function pickerAdd(kind) {
-      const ids = readPicker(kind);
-      ids.push("");
-      renderPicker(kind, ids.filter((v, i) => v || i === ids.length - 1));
+      const vals = pickerValues(kind).filter(Boolean);
+      vals.push("");
+      renderPicker(kind, vals);
+      const box = document.getElementById(PICKERS[kind].box);
+      const last = box && box.querySelector(".picker-row:last-of-type select");
+      if (last) last.focus();
     }
 
     function pickerRemove(kind, idx) {
@@ -8517,6 +8565,8 @@
     let historyTrayExpanded = false;
     function toggleHistoryTray() {
       const tray = document.getElementById("historyTray");
+      // On the phone the header tap closes the bottom sheet.
+      if (tray && tray.classList.contains("mobile-open")) { tray.classList.remove("mobile-open"); return; }
       historyTrayExpanded = !historyTrayExpanded;
       if (historyTrayExpanded) {
         tray.classList.add("expanded");
@@ -8605,7 +8655,8 @@
       historyCountBadge.innerText = `${changes.length} net change${changes.length === 1 ? '' : 's'}`;
 
       if (changes.length === 0) {
-        historyList.innerHTML = `<div class="history-empty-message">No active session modifications detected. Reshape connections or edit cards to log reports.</div>`;
+        historyList.innerHTML = `<div class="history-empty-message">No changes yet this session. Edits and reassignments made while this page is open are listed here.</div>`;
+        syncHistoryFab(0);
         return;
       }
 
@@ -8627,11 +8678,15 @@
     function syncHistoryFab(count) {
       const fabCount = document.getElementById("historyFabCount");
       if (fabCount) fabCount.innerText = count > 0 ? String(count) : "";
+      const mc = document.getElementById("mHistoryCount");
+      if (mc) { mc.textContent = count > 0 ? String(count) : ""; mc.style.display = count > 0 ? "flex" : "none"; }
     }
 
     function toggleHistoryTrayMobile() {
       const tray = document.getElementById("historyTray");
-      if (tray) tray.classList.toggle("mobile-open");
+      if (!tray) return;
+      tray.classList.toggle("mobile-open");
+      if (tray.classList.contains("mobile-open")) renderHistory();
     }
 
     function copyHistoryToClipboard() {
