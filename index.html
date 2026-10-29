@@ -2362,7 +2362,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v11.1 Vercel API</span>
+      <span>v11.2 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -3139,10 +3139,11 @@
     /* ---- stale-client protection (mirrors DPM FixMi) ----
        Browsers cache the HTML, so different devices can run different builds and
        see different data. Fix: the newest client publishes its version to the
-       shared admins/appMeta node; every client compares on each load, and a
+       admins/appMetaFindMi node (FindMi's own - FixMi uses appMetaFixMi; the
+       old shared appMeta had the two apps reloading each other); every client compares on each load, and a
        stale client force-reloads itself with a cache-busting ?v= URL. This is
        the same approach FixMi uses so the two apps stay consistent. */
-    const APP_VERSION = "11.1";
+    const APP_VERSION = "11.2";
     let _versionPublished = false;
 
     function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
@@ -3156,7 +3157,10 @@
     }
 
     function checkAppVersion(admins) {
-      const server = ((admins || {}).appMeta || {}).version;
+      // Only trust a record tagged as ours. A FixMi version (or the legacy
+      // shared appMeta) must never trigger a FindMi reload.
+      const meta = (admins || {}).appMetaFindMi;
+      const server = (meta && meta.app === "findmi") ? meta.version : null;
       if (!server || cmpVer(APP_VERSION, server) > 0) {
         // This is the newest build seen so far - publish it once per session.
         // Direct POST (not the db shim) so we don't trigger a render/reconcile.
@@ -3167,7 +3171,7 @@
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               password: EDIT_PASSWORD,
-              updates: { "admins/appMeta": { version: APP_VERSION, updatedAt: Date.now() } }
+              updates: { "admins/appMetaFindMi": { app: "findmi", version: APP_VERSION, updatedAt: Date.now() } }
             })
           }).catch(() => { _versionPublished = false; });
         }
