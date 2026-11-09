@@ -1454,6 +1454,9 @@
     .form-group label.pg-check { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.82rem; font-weight: 600; color: var(--t-ink); margin: 0; padding: 4px 0; }
     .form-group .pg-check input[type="checkbox"] { width: 16px; height: 16px; min-width: 16px; margin: 0; padding: 0; flex: 0 0 16px; accent-color: #10b981; cursor: pointer; box-shadow: none; }
     .form-group .pg-check span { line-height: 1.2; }
+    .form-group .dt-lanes input[type="text"] { width: 58px; flex: 0 0 58px; padding: 3px 6px; font-size: 0.8rem; text-align: center; font-weight: 700; margin-left: 2px; }
+    .dt-badge { flex-shrink: 0; display: inline-flex; align-items: center; gap: 1px; font-size: 0.78rem; line-height: 1; margin-left: 2px; cursor: help; letter-spacing: -3px; padding-right: 3px; }
+    .card .dt-badge { pointer-events: auto !important; }
     /* Store hours: 24h toggle disables the free-text field. */
     .mgr-editor { display: flex; flex-direction: column; gap: 4px; }
     .mgr-row { display: grid; grid-template-columns: 96px 1fr 118px 26px; gap: 5px; align-items: center; }
@@ -2362,7 +2365,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v11.2 Vercel API</span>
+      <span>v11.3 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -2763,6 +2766,7 @@
           <div class="form-group" id="groupPlayground" style="display: none;">
             <label class="pg-check" for="inputHasPlayground"><input type="checkbox" id="inputHasPlayground"><span>🛝 This store has a playground</span></label>
             <label class="pg-check" for="inputHasStarlink"><input type="checkbox" id="inputHasStarlink"><span>🛰️ Starlink site</span></label>
+            <label class="pg-check dt-lanes" for="inputDtLanes"><span>🚗 Drive-thru lanes</span><input type="text" id="inputDtLanes" inputmode="numeric" maxlength="1" placeholder="1 or 2" autocomplete="off" oninput="this.value=this.value.replace(/[^12]/g,'').slice(0,1)"><span class="field-opt">blank = unknown</span></label>
           </div>
 
           <div class="form-group" id="groupManagers" style="display: none;">
@@ -3143,7 +3147,7 @@
        old shared appMeta had the two apps reloading each other); every client compares on each load, and a
        stale client force-reloads itself with a cache-busting ?v= URL. This is
        the same approach FixMi uses so the two apps stay consistent. */
-    const APP_VERSION = "11.2";
+    const APP_VERSION = "11.3";
     let _versionPublished = false;
 
     function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
@@ -4202,11 +4206,22 @@
       renderAll();
     }
 
+    // 🚗 = single-lane drive-thru, 🚗🚗 = double lane; nothing when unknown.
+    function dtLanesText(r) {
+      const n = r && (r.dtLanes === 1 || r.dtLanes === 2) ? r.dtLanes : 0;
+      return n === 2 ? "Double-lane drive-thru" : n === 1 ? "Single-lane drive-thru" : "";
+    }
+    function dtLanesBadge(r) {
+      const n = r && (r.dtLanes === 1 || r.dtLanes === 2) ? r.dtLanes : 0;
+      if (!n) return "";
+      return `<span class="dt-badge" title="${dtLanesText(r)}" aria-label="${dtLanesText(r)}" onmousedown="event.stopPropagation();">${"🚗".repeat(n)}</span>`;
+    }
     // Keywords for store feature flags so "playground", "starlink", "24 hours"
     // typed in the header search filter to those stores.
     function storeSearchFlags(r) {
       if (!r) return "";
-      return (r.hasPlayground ? "playground " : "") + (r.hasStarlink ? "starlink " : "")
+      const lanes = r.dtLanes === 2 ? "double lane 2 lane 2-lane dual lane " : r.dtLanes === 1 ? "single lane 1 lane 1-lane " : "";
+      return (r.hasPlayground ? "playground " : "") + (r.hasStarlink ? "starlink " : "") + lanes
            + (r.open24 ? "open 24 hours 24hr 24/7 " : "") + storeHoursText(r);
     }
 
@@ -4974,7 +4989,8 @@
         // Maps), not the GPS point. Coordinates stay internal for the map screen.
         const mNav = rest.address ? "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(rest.address) : "";
         const pgEmoji = (rest.hasPlayground ? `<span class="pg-emoji" title="This store has a playground" aria-label="This store has a playground" onmousedown="event.stopPropagation();">🛝</span>` : "")
-                      + (rest.hasStarlink ? `<span class="sl-emoji" title="Starlink site" aria-label="Starlink site" onmousedown="event.stopPropagation();">🛰️</span>` : "");
+                      + (rest.hasStarlink ? `<span class="sl-emoji" title="Starlink site" aria-label="Starlink site" onmousedown="event.stopPropagation();">🛰️</span>` : "")
+                      + dtLanesBadge(rest);
 
         if (isExpanded) {
           card.innerHTML = `
@@ -5611,6 +5627,7 @@
           document.getElementById("inputStoreName").value = item.storeName || "";
           document.getElementById("inputHasPlayground").checked = !!item.hasPlayground;
           document.getElementById("inputHasStarlink").checked = !!item.hasStarlink;
+          document.getElementById("inputDtLanes").value = (item.dtLanes === 1 || item.dtLanes === 2) ? String(item.dtLanes) : "";
           mgrEditorRender(storeManagersOf(item));
           document.getElementById("inputAddress").value = item.address || "";
           __hoursShowAll = false; window.__hoursStash = item.hoursDetail || null;
@@ -5908,7 +5925,11 @@
       const d = r.hoursDetail;
       const out = [];
       if (d && typeof d === "object") {
-        HOURS_CHANNELS.forEach(c => { const t = fmtHoursWeek(d[c.key]); if (t) out.push({ icon: c.icon, label: c.label, text: t }); });
+        HOURS_CHANNELS.forEach(c => {
+          const t = fmtHoursWeek(d[c.key]); if (!t) return;
+          const label = (c.key === "driveThru" && (r.dtLanes === 1 || r.dtLanes === 2)) ? `${c.label} (${r.dtLanes === 2 ? "2 lanes" : "1 lane"})` : c.label;
+          out.push({ icon: c.icon, label, text: t });
+        });
       }
       if (!out.length && (r.hours || "").trim()) out.push({ icon: "🕒", label: "Hours", text: r.hours.trim() });
       return out;
@@ -6248,6 +6269,7 @@
           storeName: document.getElementById("inputStoreName").value,
           hasPlayground: !!document.getElementById("inputHasPlayground").checked,
           hasStarlink: !!document.getElementById("inputHasStarlink").checked,
+          dtLanes: (v => (v === "1" || v === "2") ? parseInt(v, 10) : null)(document.getElementById("inputDtLanes").value.trim()),
           // `managers` is the source of truth; the legacy storeManager/AGM
           // scalars ride through from existingStore untouched (read-only fallback).
           managers: mgrEditorRead(),
@@ -8354,6 +8376,7 @@
       if (r.email) lines.push("Email: " + r.email);
       if (r.hasPlayground) lines.push("Playground: Yes");
       if (r.hasStarlink) lines.push("Starlink site: Yes");
+      if (dtLanesText(r)) lines.push("Drive-thru: " + dtLanesText(r));
       // Relationships, resolved to names.
       const dirName = (r.assignedDirectorId && directors[r.assignedDirectorId]) ? directors[r.assignedDirectorId].name : "";
       if (dirName) lines.push("Director: " + dirName);
