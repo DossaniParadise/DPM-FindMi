@@ -1465,6 +1465,14 @@
     .mgr-row .mgr-x:hover { color: var(--t-bad-fg); }
     .mgr-editor-empty { font-size: 0.74rem; color: var(--t-muted); padding: 4px 2px; }
     @media (max-width: 768px) { .mgr-row { grid-template-columns: 84px 1fr 26px; } .mgr-row input[type="tel"] { grid-column: 1 / 3; } }
+    .exp-group { grid-column: 1 / -1; }
+    .exp-group + .exp-group { margin-top: 6px; border-top: 1px solid var(--t-line-2); padding-top: 6px; }
+    .exp-group-head { display: flex; align-items: center; justify-content: space-between; font-size: 0.66rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--t-muted); margin-bottom: 3px; }
+    .exp-group-links { font-weight: 600; letter-spacing: 0; text-transform: none; }
+    .exp-group-links a { color: var(--t-info-fg); text-decoration: none; }
+    .exp-group-links a:hover { text-decoration: underline; }
+    .exp-group-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 14px; }
+    .exp-group-cols label { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; cursor: pointer; }
     .hours-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
     .hours-paste { width: 100%; box-sizing: border-box; font-family: monospace; font-size: 0.72rem; padding: 6px 8px; border: 1px solid var(--t-line-2); border-radius: 4px; resize: vertical; background: var(--bg-white); color: var(--t-ink); }
     .hours-tools { display: flex; align-items: center; gap: 8px; margin: 4px 0 6px; font-size: 0.7rem; color: var(--t-muted); }
@@ -2365,7 +2373,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v11.4 Vercel API</span>
+      <span>v11.6 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -2926,7 +2934,7 @@
           <button type="button" class="btn btn-xs" onclick="setAllExportCols(false)">Clear</button>
           <span id="exportCount" style="margin-left:auto; font-size:0.72rem; color:var(--t-muted); align-self:center;"></span>
         </div>
-        <div id="exportColumnList" style="display:grid; grid-template-columns:1fr 1fr; gap:4px 14px; max-height:300px; overflow-y:auto; border:1px solid var(--t-line-2); border-radius:6px; padding:10px;">
+        <div id="exportColumnList" style="display:grid; grid-template-columns:1fr 1fr; gap:4px 14px; max-height:min(58vh, 560px); overflow-y:auto; border:1px solid var(--t-line-2); border-radius:6px; padding:10px;">
           <!-- checkboxes injected -->
         </div>
         <div id="exportStaffWrap" style="display:none; margin-top:10px; padding-top:10px; border-top:1px solid var(--t-line-2);">
@@ -3147,7 +3155,7 @@
        old shared appMeta had the two apps reloading each other); every client compares on each load, and a
        stale client force-reloads itself with a cache-busting ?v= URL. This is
        the same approach FixMi uses so the two apps stay consistent. */
-    const APP_VERSION = "11.4";
+    const APP_VERSION = "11.6";
     let _versionPublished = false;
 
     function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
@@ -8141,40 +8149,59 @@
     // ---- Export to Excel ----
     // Each column: a label and a getter that turns a store record into a cell
     // value. Relationship columns resolve to readable names, not internal IDs.
+    // Export columns, grouped the way people think about them. The sheet's
+    // column order follows this order too.
     const EXPORT_COLUMNS = [
-      { key: "storeNumber", label: "Store #",        get: r => r.storeNumber || "" },
-      { key: "storeName",   label: "Store Name",     get: r => r.storeName || "" },
-      { key: "division",    label: "Division",       get: r => divisionLabel(storeDivision(r)) },
-      { key: "address",     label: "Address",        get: r => r.address || "" },
-      { key: "phone",       label: "Phone Number",   get: r => r.phone || "" },
-      { key: "email",       label: "Store Email",    get: r => r.email || "" },
-      { key: "manager",     label: "Store Manager",  get: r => storeGMName(r) },
-      { key: "agm",         label: "Assistant GM",   get: r => storeAGMName(r) },
-      { key: "allManagers", label: "All Managers",   get: r => storeManagersOf(r).map(m => (m.name || "") + (m.title ? ` (${m.title})` : "")).join("; ") },
-      { key: "coach",       label: "District Manager", get: r => getCoachNames(r).join(", ") },
-      { key: "coachEmail",  label: "District Manager Email", get: r => getCoachIds(r).map(id => (areaCoaches[id] || {}).email || "").filter(Boolean).join(", ") },
-      { key: "director",    label: "Director",       get: r => (r.assignedDirectorId && directors[r.assignedDirectorId]) ? directors[r.assignedDirectorId].name : "" },
-      { key: "directorEmail", label: "Director Email", get: r => (r.assignedDirectorId && directors[r.assignedDirectorId]) ? (directors[r.assignedDirectorId].email || "") : "" },
-      { key: "tech",        label: "Repair Tech",    get: r => getTechNames(r).join(", ") },
-      { key: "techEmail",   label: "Repair Tech Email", get: r => getTechIds(r).map(id => (repairTechnicians[id] || {}).email || "").filter(Boolean).join(", ") },
-      { key: "entity",      label: "Entity",         get: r => exportEntityName(r) },
-      { key: "playground",  label: "Playground",     get: r => r.hasPlayground ? "Yes" : "" },
-      { key: "starlink",    label: "Starlink",       get: r => r.hasStarlink ? "Yes" : "" },
-      { key: "dtLanes",     label: "Drive-Thru Lanes", get: r => (r.dtLanes === 1 || r.dtLanes === 2) ? String(r.dtLanes) : "" },
-      // Hours per channel. A store flagged "Open 24 hours" fills only the
-      // channels that make sense for it (C-stores: Store Hours; everything else:
-      // Dining / Drive-Thru / Delivery) instead of every column.
-      { key: "hoursDining",   label: "Dining Hours",            get: r => exportHours(r, "dining") },
-      { key: "hoursDT",       label: "Drive-Thru Hours",        get: r => exportHours(r, "driveThru") },
-      { key: "hoursMobile",   label: "Mobile Drive-Thru Hours", get: r => exportHours(r, "mobileDT") },
-      { key: "hoursDelivery", label: "Delivery Hours",          get: r => exportHours(r, "delivery") },
-      { key: "hoursStore",    label: "Store Hours (C-store)",   get: r => exportHours(r, "store") },
-      { key: "latitude",    label: "Latitude",       get: r => r.latitude || "" },
-      { key: "longitude",   label: "Longitude",      get: r => r.longitude || "" }
+      // Store
+      { group: "Store",            key: "storeNumber",   label: "Store #",          get: r => r.storeNumber || "" },
+      { group: "Store",            key: "storeName",     label: "Store Name",       get: r => r.storeName || "" },
+      { group: "Store",            key: "division",      label: "Division",         get: r => divisionLabel(storeDivision(r)) },
+      { group: "Store",            key: "entity",        label: "Entity",           get: r => exportEntityName(r) },
+      { group: "Store",            key: "address",       label: "Address",          get: r => r.address || "" },
+      { group: "Store",            key: "phone",         label: "Store Phone",      get: r => r.phone || "" },
+      { group: "Store",            key: "email",         label: "Store Email",      get: r => r.email || "" },
+      // Store managers
+      { group: "Store Managers",   key: "manager",       label: "General Manager",  get: r => storeGMName(r) },
+      { group: "Store Managers",   key: "agm",           label: "Assistant GM",     get: r => storeAGMName(r) },
+      { group: "Store Managers",   key: "allManagers",   label: "All Managers (with titles)", get: r => storeManagersOf(r).map(m => (m.name || "") + (m.title ? ` (${m.title})` : "")).join("; ") },
+      // District manager
+      { group: "District Manager", key: "coach",         label: "DM Name",          get: r => getCoachNames(r).join(", ") },
+      { group: "District Manager", key: "coachEmail",    label: "DM Email",         get: r => getCoachIds(r).map(id => (areaCoaches[id] || {}).email || "").filter(Boolean).join(", ") },
+      { group: "District Manager", key: "coachPhone",    label: "DM Phone",         get: r => getCoachIds(r).map(id => exportPhone((areaCoaches[id] || {}).phone)).filter(Boolean).join(", ") },
+      // Director
+      { group: "Director",         key: "director",      label: "Director Name",    get: r => (r.assignedDirectorId && directors[r.assignedDirectorId]) ? directors[r.assignedDirectorId].name : "" },
+      { group: "Director",         key: "directorEmail", label: "Director Email",   get: r => (r.assignedDirectorId && directors[r.assignedDirectorId]) ? (directors[r.assignedDirectorId].email || "") : "" },
+      { group: "Director",         key: "directorPhone", label: "Director Phone",   get: r => (r.assignedDirectorId && directors[r.assignedDirectorId]) ? exportPhone(directors[r.assignedDirectorId].phone) : "" },
+      // Repair tech
+      { group: "Repair Tech",      key: "tech",          label: "Tech Name",        get: r => getTechNames(r).join(", ") },
+      { group: "Repair Tech",      key: "techEmail",     label: "Tech Email",       get: r => getTechIds(r).map(id => (repairTechnicians[id] || {}).email || "").filter(Boolean).join(", ") },
+      { group: "Repair Tech",      key: "techPhone",     label: "Tech Phone",       get: r => getTechIds(r).map(id => exportPhone((repairTechnicians[id] || {}).phone)).filter(Boolean).join(", ") },
+      // Features
+      { group: "Features",         key: "dtLanes",       label: "Drive-Thru Lanes", get: r => (r.dtLanes === 1 || r.dtLanes === 2) ? String(r.dtLanes) : "" },
+      { group: "Features",         key: "playground",    label: "Playground",       get: r => r.hasPlayground ? "Yes" : "" },
+      { group: "Features",         key: "starlink",      label: "Starlink",         get: r => r.hasStarlink ? "Yes" : "" },
+      // Hours (a 24-hour store fills only the channels that apply to it)
+      { group: "Hours",            key: "hoursDining",   label: "Dining",           get: r => exportHours(r, "dining") },
+      { group: "Hours",            key: "hoursDT",       label: "Drive-Thru",       get: r => exportHours(r, "driveThru") },
+      { group: "Hours",            key: "hoursMobile",   label: "Mobile Drive-Thru",get: r => exportHours(r, "mobileDT") },
+      { group: "Hours",            key: "hoursDelivery", label: "Delivery",         get: r => exportHours(r, "delivery") },
+      { group: "Hours",            key: "hoursStore",    label: "C-store Hours",         get: r => exportHours(r, "store") },
+      // Location
+      { group: "Location",         key: "latitude",      label: "Latitude",         get: r => r.latitude || "" },
+      { group: "Location",         key: "longitude",     label: "Longitude",        get: r => r.longitude || "" }
     ];
+    // Sheet headers carry the group so "Email" columns are unambiguous.
+    function exportHeaderLabel(c) {
+      return (c.group === "Hours" && !/hours/i.test(c.label)) ? `${c.label} Hours` : c.label;
+    }
     // Columns ticked by default - the common "give me the roster" set.
-    const EXPORT_DEFAULT = ["storeNumber","storeName","division","address","phone","manager","coach","coachEmail","director"];
+    const EXPORT_DEFAULT = ["storeNumber","storeName","division","address","phone","manager","coach","coachEmail","coachPhone","director"];
 
+    function setExportGroup(name, on) {
+      document.querySelectorAll(`#exportColumnList input[data-group="${CSS.escape(name)}"]`).forEach(cb => { cb.checked = on; });
+      updateExportCount();
+    }
+    function exportPhone(p) { const t = String(p || "").trim(); return t ? (formatPhoneNumber(t) || t) : ""; }
     function exportHours(r, key) {
       if (r.open24) {
         const cs = isCStoreRec(r);
@@ -8190,11 +8217,17 @@
 
     function openExportModal() {
       const box = document.getElementById("exportColumnList");
-      box.innerHTML = EXPORT_COLUMNS.map(c => `
-        <label style="display:flex; align-items:center; gap:6px; font-size:0.78rem; cursor:pointer;">
-          <input type="checkbox" value="${c.key}" ${EXPORT_DEFAULT.indexOf(c.key) !== -1 ? "checked" : ""} onchange="updateExportCount()">
-          <span>${escapeHtml(c.label)}</span>
-        </label>`).join("");
+      const groups = [];
+      EXPORT_COLUMNS.forEach(c => { let g = groups.find(x => x.name === c.group); if (!g) { g = { name: c.group, cols: [] }; groups.push(g); } g.cols.push(c); });
+      box.innerHTML = groups.map(g => `
+        <div class="exp-group">
+          <div class="exp-group-head">
+            <span>${escapeHtml(g.name)}</span>
+            <span class="exp-group-links"><a href="#" onclick="setExportGroup('${escapeHtml(g.name)}', true); return false;">all</a> · <a href="#" onclick="setExportGroup('${escapeHtml(g.name)}', false); return false;">none</a></span>
+          </div>
+          <div class="exp-group-cols">${g.cols.map(c => `
+            <label><input type="checkbox" value="${c.key}" data-group="${escapeHtml(c.group)}" ${EXPORT_DEFAULT.indexOf(c.key) !== -1 ? "checked" : ""} onchange="updateExportCount()"><span>${escapeHtml(c.label)}</span></label>`).join("")}</div>
+        </div>`).join("");
       // Extra option: include a second sheet of Support Staff.
       const staffWrap = document.getElementById("exportStaffWrap");
       if (staffWrap) {
@@ -8253,14 +8286,14 @@
           // Sheet 1: Stores (only if store columns were picked).
           if (cols.length) {
             const ids = exportRowIds();
-            const header = cols.map(c => c.label);
+            const header = cols.map(c => exportHeaderLabel(c));
             const rows = ids.map(id => {
               const r = restaurants[id];
               return cols.map(c => c.get(r));
             });
             const ws = XLSX.utils.aoa_to_sheet([header].concat(rows));
             ws["!cols"] = cols.map((c, i) => {
-              const maxLen = Math.max(c.label.length, ...rows.map(row => String(row[i] || "").length));
+              const maxLen = Math.max(exportHeaderLabel(c).length, ...rows.map(row => String(row[i] || "").length));
               return { wch: Math.min(Math.max(maxLen + 2, 10), 50) };
             });
             XLSX.utils.book_append_sheet(wb, ws, "Stores");
