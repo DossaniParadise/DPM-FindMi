@@ -1316,6 +1316,8 @@
        appear once "Unlock Editing" is on (body gets .editing-unlocked). Viewers
        see a clean, read-only directory. Export stays available to everyone. */
     .edit-only { display: none !important; }
+    .cf-private { display: none; }
+    body.editing-unlocked .cf-private { display: block; }
     .card-actions { display: none; }
     body.editing-unlocked .edit-only { display: inline-flex !important; }
     body.editing-unlocked .card-actions { display: flex; }
@@ -2373,7 +2375,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v11.6 Vercel API</span>
+      <span>v11.7 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -2836,6 +2838,11 @@
             <input type="text" id="inputPhone" placeholder="e.g. (817) 555-0199">
           </div>
 
+          <div class="form-group" id="groupHomeZip" style="display: none;">
+            <label for="inputHomeZip">Home ZIP <span class="field-opt">private — shown only while editing is unlocked; the map draws this person's reach from home</span></label>
+            <input type="text" id="inputHomeZip" inputmode="numeric" maxlength="5" placeholder="e.g. 76051" autocomplete="off" oninput="this.value=this.value.replace(/\D/g,'').slice(0,5)">
+          </div>
+
           <!-- Support Staff-only fields -->
           <div class="form-group" id="groupStaffTitle" style="display: none;">
             <label for="inputStaffTitle">Job Title</label>
@@ -3155,7 +3162,7 @@
        old shared appMeta had the two apps reloading each other); every client compares on each load, and a
        stale client force-reloads itself with a cache-busting ?v= URL. This is
        the same approach FixMi uses so the two apps stay consistent. */
-    const APP_VERSION = "11.6";
+    const APP_VERSION = "11.7";
     let _versionPublished = false;
 
     function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
@@ -3554,6 +3561,7 @@
       // Single source of truth for edit-UI visibility: +Add / Batch Import
       // buttons, per-card pencil/✕, and the Head badge are all CSS-gated on this.
       document.body.classList.toggle("editing-unlocked", !isLocked);
+      if (isLocked && typeof __mapDrawHome === "function") { try { __mapDrawHome(null); } catch (e) {} }
       const mBtn = document.getElementById("mLockBtn");
       if (mBtn) { mBtn.textContent = isLocked ? "🔒" : "🔓"; mBtn.classList.toggle("is-unlocked", !isLocked); mBtn.title = isLocked ? "Unlock editing" : "Lock editing"; }
       const toggle = document.getElementById("lockToggle");
@@ -4316,6 +4324,7 @@
             <div class="card-details-block" onmousedown="event.stopPropagation();" onclick="event.stopPropagation();" style="pointer-events: auto !important; margin-top: 6px;">
               ${mPersonActions(dir, { count: mStoreCountFor('director', dirId) })}
               ${cfRow("✉", "Email", dir.email, "Email")}
+              ${homeZipRow(dir)}
               ${cfRow("☎", "Phone", formatPhoneNumber(dir.phone) || dir.phone, "Phone number")}
             </div>
           `;
@@ -4374,6 +4383,7 @@
             <div class="card-details-block" onmousedown="event.stopPropagation();" onclick="event.stopPropagation();" style="pointer-events: auto !important; margin-top: 6px;">
               ${mPersonActions(tech, { count: mStoreCountFor('tech', techId) })}
               ${cfRow("✉", "Email", tech.email, "Email")}
+              ${homeZipRow(tech)}
               ${cfRow("☎", "Phone", formatPhoneNumber(tech.phone) || tech.phone, "Phone number")}
             </div>
           `;
@@ -4607,6 +4617,7 @@
             <div class="card-details-block" onmousedown="event.stopPropagation();" onclick="event.stopPropagation();" style="pointer-events: auto !important; margin-top: 6px;">
               ${mPersonActions(coach, { count: mStoreCountFor('coach', coachId) })}
               ${cfRow("✉", "Email", coach.email, "Email")}
+              ${homeZipRow(coach)}
               ${cfRow("☎", "Phone", formatPhoneNumber(coach.phone) || coach.phone, "Phone number")}
               <div class="assignment-tags" style="margin-top: 4px;">
                 ${dirName ? `<span class="relation-badge badge-director">Director: ${escapeHtml(dirName)}</span>` : '<span class="relation-badge badge-unassigned">No Director</span>'}
@@ -5569,6 +5580,7 @@
         document.getElementById("modalTitle").innerText = titleText;
         
         setupFormFields(type);
+        { const hz = document.getElementById("inputHomeZip"); if (hz) hz.value = ""; }
         mgrEditorRender([]);
         __hoursShowAll = false; window.__hoursStash = null;
         hoursGridFill(null);
@@ -5593,6 +5605,10 @@
         
         setupFormFields(type);
         if (type === "technician") { renderTechCatGrid([]); renderTechSwatches(""); }
+        { // Home ZIP (private) - DM / Director / Tech only
+          const hzRec = type === "coach" ? areaCoaches[id] : type === "director" ? directors[id] : type === "technician" ? repairTechnicians[id] : null;
+          const hz = document.getElementById("inputHomeZip"); if (hz) hz.value = (hzRec && hzRec.homeZip) ? String(hzRec.homeZip) : "";
+        }
 
         // Populate Form inputs
         if (type === "vp") {
@@ -6035,6 +6051,7 @@
       }
       show("groupTechCategories", type === "technician");
       show("groupTechColor", type === "technician");
+      show("groupHomeZip", type === "coach" || type === "director" || type === "technician");
     }
 
     // Dynamic select inputs helpers
@@ -6175,6 +6192,61 @@
     }
 
     // Form Submission Actions
+    // ---- Home ZIP (private) + geocoding ----
+    // homeZip is typed in the form; homeLat/homeLng are filled in afterwards
+    // by a ZIP-centroid lookup (api.zippopotam.us, no key, CORS-enabled) and
+    // written back as field-level updates so the map never needs the network.
+    function homeFieldsFromForm(existing) {
+      const el = document.getElementById("inputHomeZip");
+      const zip = el ? el.value.replace(/\D/g, "").slice(0, 5) : "";
+      const prev = (existing && existing.homeZip) ? String(existing.homeZip) : "";
+      if (!zip) return { homeZip: "", homeLat: null, homeLng: null };
+      if (zip === prev && existing && existing.homeLat != null && existing.homeLng != null)
+        return { homeZip: zip, homeLat: existing.homeLat, homeLng: existing.homeLng };
+      return { homeZip: zip, homeLat: null, homeLng: null };
+    }
+    const __zipCache = (() => { try { return JSON.parse(localStorage.getItem("dpm_zip_cache") || "{}"); } catch (e) { return {}; } })();
+    function geocodeZip(zip) {
+      zip = String(zip || "").replace(/\D/g, "").slice(0, 5);
+      if (zip.length !== 5) return Promise.resolve(null);
+      if (__zipCache[zip]) return Promise.resolve(__zipCache[zip]);
+      return fetch("https://api.zippopotam.us/us/" + zip, { cache: "force-cache" })
+        .then(r => r.ok ? r.json() : null)
+        .then(j => {
+          const pl = j && j.places && j.places[0];
+          if (!pl) return null;
+          const out = { lat: parseFloat(pl.latitude), lng: parseFloat(pl.longitude), place: `${pl["place name"]}, ${pl["state abbreviation"]}` };
+          if (!isFinite(out.lat) || !isFinite(out.lng)) return null;
+          __zipCache[zip] = out;
+          try { localStorage.setItem("dpm_zip_cache", JSON.stringify(__zipCache)); } catch (e) {}
+          return out;
+        }).catch(() => null);
+    }
+    // After a save: if the ZIP has no coordinates yet, look them up and write
+    // just the two coordinate fields (never the whole record).
+    function homeGeocodeLater(coll, id, rec) {
+      if (!rec || !rec.homeZip || (rec.homeLat != null && rec.homeLng != null)) return;
+      const zip = rec.homeZip;
+      geocodeZip(zip).then(g => {
+        if (!g) return;
+        const live = ({ areaCoaches, directors, repairTechnicians }[coll] || {})[id];
+        if (!live || String(live.homeZip) !== String(zip)) return;   // changed meanwhile
+        db.ref().update({ [`${coll}/${id}/homeLat`]: g.lat, [`${coll}/${id}/homeLng`]: g.lng }, () => {});
+      });
+    }
+    function homeLatLng(rec) {
+      if (!rec) return null;
+      const la = parseFloat(rec.homeLat), ln = parseFloat(rec.homeLng);
+      return (isFinite(la) && isFinite(ln)) ? [la, ln] : null;
+    }
+    // Private row on DM / Director / Tech cards: only rendered while unlocked.
+    function homeZipRow(rec) {
+      if (!rec || !rec.homeZip) return "";
+      const g = __zipCache[String(rec.homeZip)];
+      const txt = String(rec.homeZip) + (g && g.place ? ` · ${g.place}` : "");
+      return `<div class="cf-private">${cfRow("🏠", "Home ZIP", txt, "Home ZIP")}</div>`;
+    }
+
     function handleFormSubmit(e) {
       e.preventDefault();
       
@@ -6206,22 +6278,24 @@
           deptHead: !!document.getElementById("inputStaffHead").checked
         };
       } else if (type === "director") {
-        updates[`directors/${id}`] = {
+        updates[`directors/${id}`] = Object.assign({}, directors[id] || {}, {
           id: id,
           name: document.getElementById("inputName").value,
           email: document.getElementById("inputEmail").value,
           phone: formatPhoneNumber(document.getElementById("inputPhone").value),
           assignedVpId: document.getElementById("selectAssignedVp").value || ""
-        };
+        }, homeFieldsFromForm(directors[id]));
+        homeGeocodeLater("directors", id, updates[`directors/${id}`]);
       } else if (type === "technician") {
         const existingTech = repairTechnicians[id] || {};
-        updates[`repairTechnicians/${id}`] = {
+        updates[`repairTechnicians/${id}`] = Object.assign({
           ...existingTech,
           id: id,
           name: document.getElementById("inputName").value,
           email: document.getElementById("inputEmail").value,
           phone: formatPhoneNumber(document.getElementById("inputPhone").value),
-        };
+        }, homeFieldsFromForm(existingTech));
+        homeGeocodeLater("repairTechnicians", id, updates[`repairTechnicians/${id}`]);
         // Shared with DPM FixMi. [] categories = general-purpose (handles everything).
         updates[`admins/techMeta/${id}`] = {
           categories: readTechCategories(),
@@ -6236,13 +6310,14 @@
           phone: formatPhoneNumber(document.getElementById("inputPhone").value)
         };
       } else if (type === "coach") {
-        updates[`areaCoaches/${id}`] = {
+        updates[`areaCoaches/${id}`] = Object.assign({}, areaCoaches[id] || {}, {
           id: id,
           name: document.getElementById("inputName").value,
           email: document.getElementById("inputEmail").value,
           phone: formatPhoneNumber(document.getElementById("inputPhone").value),
           assignedDirectorId: document.getElementById("selectAssignedDirector").value
-        };
+        }, homeFieldsFromForm(areaCoaches[id]));
+        homeGeocodeLater("areaCoaches", id, updates[`areaCoaches/${id}`]);
      } else if (type === "restaurant") {
         const selectedCoachIds = readPicker("coach");
         const selectedTechIds = readPicker("tech");
@@ -9249,6 +9324,7 @@
       __mapActiveGroup = (__mapActiveGroup === groupKey) ? null : groupKey;
       __mapApplyDim();
       __mapRenderLegend();
+      __mapDrawHome(__mapActiveGroup);
       // Zoom: to the group's pins when selecting, back to all when clearing.
       const matches = __mapActiveGroup
         ? __mapMarkers.filter((m) => ((m.groupKeys && m.groupKeys.length) ? m.groupKeys : [m.groupKey]).indexOf(__mapActiveGroup) !== -1)
@@ -9257,6 +9333,65 @@
       if (__mapAutoZoom) __mapFlyToMarkers(matches);
     };
 
+    // ---- Home reach overlay (private): 🏠 at the person's home ZIP, a spoke
+    // to every store they cover, and a dashed ring at the farthest one.
+    // Drawn only while editing is unlocked, so public viewers never see homes.
+    let __mapHomeLayer = null;
+    function __mapPersonForGroup(groupKey) {
+      if (!groupKey) return null;
+      const m = groupKey.match(/^(coach|dir|tech):(.+)$/);
+      if (!m) return null;
+      const coll = m[1] === "coach" ? "areaCoaches" : m[1] === "dir" ? "directors" : "repairTechnicians";
+      const rec = ({ areaCoaches, directors, repairTechnicians }[coll] || {})[m[2]];
+      return rec ? { coll, id: m[2], rec } : null;
+    }
+    function __mapMiles(a, b) {
+      const R = 3958.8, toR = d => d * Math.PI / 180;
+      const dLat = toR(b[0] - a[0]), dLng = toR(b[1] - a[1]);
+      const h = Math.sin(dLat / 2) ** 2 + Math.cos(toR(a[0])) * Math.cos(toR(b[0])) * Math.sin(dLng / 2) ** 2;
+      return 2 * R * Math.asin(Math.sqrt(h));
+    }
+    function __mapDrawHome(groupKey) {
+      if (__mapHomeLayer) { try { __mapView.removeLayer(__mapHomeLayer); } catch (e) {} __mapHomeLayer = null; }
+      if (!__mapView || !groupKey || isEditingLocked) return;
+      const person = __mapPersonForGroup(groupKey);
+      if (!person || !person.rec.homeZip) return;
+      const draw = (home) => {
+        if (!home || __mapActiveGroup !== groupKey) return;
+        const color = __mapColorCache[groupKey] || "#f59e0b";
+        const layer = L.layerGroup();
+        const spokes = [];
+        __mapMarkers.forEach(({ marker, groupKey: gk, groupKeys, restId }) => {
+          const keys = (groupKeys && groupKeys.length) ? groupKeys : [gk];
+          if (keys.indexOf(groupKey) === -1) return;
+          const ll = marker.getLatLng(); const to = [ll.lat, ll.lng];
+          const mi = __mapMiles(home, to);
+          spokes.push({ to, mi, restId });
+          L.polyline([home, to], { color, weight: 2, opacity: 0.75, interactive: true })
+            .bindTooltip(`${mi.toFixed(0)} mi`, { sticky: true, direction: "top" }).addTo(layer);
+        });
+        const far = spokes.length ? Math.max(...spokes.map(s => s.mi)) : 0;
+        const avg = spokes.length ? spokes.reduce((a, s) => a + s.mi, 0) / spokes.length : 0;
+        if (far > 0) L.circle(home, { radius: far * 1609.34, color, weight: 1.5, opacity: 0.55, fillColor: color, fillOpacity: 0.06, dashArray: "6 6", interactive: false }).addTo(layer);
+        const icon = L.divIcon({ className: "", html: `<div style="width:30px;height:30px;border-radius:50%;background:${color};border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;font-size:15px;">🏠</div>`, iconSize: [30, 30], iconAnchor: [15, 15] });
+        const g = __zipCache[String(person.rec.homeZip)];
+        L.marker(home, { icon, zIndexOffset: 1000 }).bindPopup(
+          `<div style="font-size:12px;line-height:1.5;min-width:170px;"><strong>${escapeHtml(person.rec.name || "")}</strong><br>` +
+          `🏠 Home ZIP ${escapeHtml(String(person.rec.homeZip))}${g && g.place ? " · " + escapeHtml(g.place) : ""}<br>` +
+          `<span style="color:#64748b">${spokes.length} store${spokes.length === 1 ? "" : "s"} · farthest ${far.toFixed(0)} mi · avg ${avg.toFixed(0)} mi</span>` +
+          `<br><span style="color:#94a3b8;font-size:11px">Private — shown only while editing is unlocked</span></div>`).addTo(layer);
+        layer.addTo(__mapView);
+        __mapHomeLayer = layer;
+      };
+      const ll = homeLatLng(person.rec);
+      if (ll) { draw(ll); return; }
+      // No coordinates yet (lookup failed at save time, or saved elsewhere): fetch now.
+      geocodeZip(person.rec.homeZip).then(gc => {
+        if (!gc) return;
+        draw([gc.lat, gc.lng]);
+        db.ref().update({ [`${person.coll}/${person.id}/homeLat`]: gc.lat, [`${person.coll}/${person.id}/homeLng`]: gc.lng }, () => {});
+      });
+    }
     function __mapApplyDim() {
       __mapMarkers.forEach(({ marker, groupKey, groupKeys }) => {
         const el = marker._icon;
@@ -9482,6 +9617,7 @@
       clearInterval(__mapRadarTimer); __mapRadarTimer = null; __mapRadarLayer = null;
       const rsw = document.getElementById("mapRadar"); if (rsw) rsw.checked = false;
       __mapMarkers = [];
+      __mapHomeLayer = null;   // old map instance is gone with its layers
       __mapVariantReportCache = null; // rebuild variant report for this render
 
       // Group + color computation
