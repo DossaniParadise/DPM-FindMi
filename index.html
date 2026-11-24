@@ -2375,7 +2375,7 @@
   <header>
     <div class="header-logo">
       <h1>DPM FindMi</h1>
-      <span>v11.7 Vercel API</span>
+      <span>v11.8 Vercel API</span>
     </div>
 
     <div class="global-search-wrap">
@@ -3162,7 +3162,7 @@
        old shared appMeta had the two apps reloading each other); every client compares on each load, and a
        stale client force-reloads itself with a cache-busting ?v= URL. This is
        the same approach FixMi uses so the two apps stay consistent. */
-    const APP_VERSION = "11.7";
+    const APP_VERSION = "11.8";
     let _versionPublished = false;
 
     function cmpVer(a, b) { // 1 if a>b, -1 if a<b, 0 equal
@@ -8228,7 +8228,8 @@
     // column order follows this order too.
     const EXPORT_COLUMNS = [
       // Store
-      { group: "Store",            key: "storeNumber",   label: "Store #",          get: r => r.storeNumber || "" },
+      // Store number without the "#", so the sheet sorts/VLOOKUPs as a plain value.
+      { group: "Store",            key: "storeNumber",   label: "Store #",          get: r => String(r.storeNumber || "").replace(/^\s*#\s*/, "").trim() },
       { group: "Store",            key: "storeName",     label: "Store Name",       get: r => r.storeName || "" },
       { group: "Store",            key: "division",      label: "Division",         get: r => divisionLabel(storeDivision(r)) },
       { group: "Store",            key: "entity",        label: "Entity",           get: r => exportEntityName(r) },
